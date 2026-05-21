@@ -5,21 +5,28 @@ import threading
 
 IP = "localhost"
 PORT = 1883
-TRIGGER_TOPIC = "trigger/capture"
+TRIGGER_TOPIC = "trigger/status"
 PUBLISH_TOPIC = "camera/image"
 
 def start_async_loop(loop):
     asyncio.set_event_loop(loop)
     loop.run_forever()
 
-async def listen_for_capture():
+async def listen_for_capture(camera: CameraClass) -> bool:
     # This function waits for a capture request to be sent from the broker and then triggers the camera to capture an image.
     # it returns a boolean value indicating whether the capture was received or not.
-    camera = CameraClass()
-    msg = await camera.ListenForMessage()
-    if msg is not None and msg.topic == TRIGGER_TOPIC:
-        print("Capture request received.")
+
+    try:
+        msg = await camera.ListenForMessage()
+        
+    except Exception as e:
+        print(f"Error occurred while listening for message: {e}")
+        return False
+    
+    if msg:
+        print("Capture request received." + str(msg))
         return True
+
     return False
 
 def main():
@@ -29,16 +36,16 @@ def main():
     camera.SubscribeToTopic(TRIGGER_TOPIC)
 
     loop = asyncio.new_event_loop()
-    t = threading.Thread(target=listen_for_capture, args=(loop,), daemon=True)
+    t = threading.Thread(target=start_async_loop, args=(loop,), daemon=True)
     t.start()
 
-    asyncio.run_coroutine_threadsafe(camera.ListenForMessage(), loop)
+    #asyncio.run_coroutine_threadsafe(listen_for_capture(camera), loop)
 
     time.sleep(0.1)
 
     while True:
-        time.sleep(1)  # Sleep for a short time to prevent busy waiting
-        if listen_for_capture():
+        time.sleep(1)
+        if asyncio.run_coroutine_threadsafe(listen_for_capture(camera), loop).result():
             print("Capturing image...")
             image = camera.GetImageFromCamera()
 
