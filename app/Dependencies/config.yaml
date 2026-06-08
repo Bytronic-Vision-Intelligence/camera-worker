@@ -1,5 +1,7 @@
 ip: localhost
 port: 1883
-trigger_topic: test/topic
-image_topic: camera/image
+trigger_topic: "magnapower/sortyboi/inference/trigger"
+image_topic: "magnapower/sortyboi/camer1/image"
+trigger_time_topic: "magnapower/sortyboi/camer1/trigger_time"
 message: null
+camera_type: opencv
