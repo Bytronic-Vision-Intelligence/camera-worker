@@ -6,7 +6,7 @@ from queue import Empty, Queue
 from MQTT_Objects.Classes.mqttClass import mqttClass
 from MQTT_Objects.Classes.mqtt_Camera_PylonClass import PylonClass
 from MQTT_Objects.Classes.mqtt_CameraClass import CameraClass
-
+#
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
 TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
