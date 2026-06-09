@@ -9,7 +9,7 @@ class Camera:
         Raises:
             Exception: If the camera type is unsupported or if connection fails."""
         camera =  cv2.VideoCapture(0)
-        if not camera is None:
+        if camera is None or not camera.isOpened():
             raise Exception("Failed to open OpenCV camera.")
         return camera
     
