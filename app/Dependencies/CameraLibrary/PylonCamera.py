@@ -24,8 +24,8 @@ class PylonCamera(Camera):
             raise RuntimeError("Error finding camera: " + str(e)) from e
         
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
-        #connect to the camera and return the camera object - this is very messy clean this up please
-        #function will return the camera object
+        # Connect to the camera and return the camera object.
+        # Function returns the camera object.
         timeout_s = timeout_ms / 1000.0
         start = time.time()
 
