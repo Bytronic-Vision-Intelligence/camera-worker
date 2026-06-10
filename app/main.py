@@ -23,9 +23,8 @@ LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 #check if dio.log exists
 
 if not os.path.exists(LOGGING_FILE):
-    file = open(LOGGING_FILE,"w")
-    file.write("")
-    file.close()
+    with open(LOGGING_FILE, "w") as file:
+        file.write("")
 
 logging.basicConfig(
     filename=LOGGING_FILE,
