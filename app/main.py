@@ -18,9 +18,10 @@ TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
 IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
-CAMERA_TYPE = loadConfig.return_config_value("camera_type")
+CAMERA_TYPE = loadConfig.return_config_value("camera_type") 
+
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-#check if dio.log exists
+#check if .log file exists
 
 if not os.path.exists(LOGGING_FILE):
     file = open(LOGGING_FILE,"w")
@@ -101,7 +102,7 @@ def main():
     event_queue = Queue()
     stop_event = threading.Event()
     subscribe_thread = start_subscribe_thread(IP, PORT, TRIGGER_TOPIC, event_queue, stop_event)
-
+    time.sleep(0.1)
     try:
         while True:
             time.sleep(0.1)
@@ -124,7 +125,7 @@ def main():
             packet = image_bytes+date_time
             print(packet[getsizeof(packet)-52:])
 
-            logging.info("Publishing image...")
+            logging.info(f"Publishing image... of size {getsizeof(image_bytes)}")
             if image is not None:
                 try:
                     client.publish(IMAGE_TOPIC, packet)

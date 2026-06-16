@@ -77,7 +77,6 @@ class PylonCamera(Camera):
 
             img = grab_result.Array  # type: ignore
 
-            # Optionally convert pixel format here if needed, e.g., to BGR for OpenCV
             if is_converted:
                 converter = pylon.ImageFormatConverter()
                 converter.OutputPixelFormat = pylon.PixelType_BGR8packed
@@ -88,12 +87,27 @@ class PylonCamera(Camera):
             return np.asarray(img)
 
         finally:
-            # release GrabResult if required by wrapper
             try:
                 grab_result.Release()
             except Exception:
                 self.logger.error("Failed to release grab_result", exc_info=True)
 
+    def wait_for_frame(seld, camera:pylon.InstantCamera = None, timeout_ms:int = 5000):
+        #wait until camera is triggered
+        if camera is None:
+            camera = self.cam
+        if camera is None:
+            raise ValueError("camera is None")
+        if not camera.IsOpen():
+            raise RuntimeError("camera is not open")
+
+        if not camera.IsGrabbing():
+            return
+        #right now this will fail loud, maybe this should fail more discreetly but i dont think it should wait forever
+        image = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
+        if image.GrabSucceded():
+            return image.Array
+        
     def disconnect_camera(self, camera) -> None:
         #disconnect the camera
         #function will return nothing
