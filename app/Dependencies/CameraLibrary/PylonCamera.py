@@ -93,7 +93,7 @@ class PylonCamera(Camera):
             except Exception:
                 logging.error("Failed to release grab_result", exc_info=True)
 
-    def wait_for_frame(seld, camera:pylon.InstantCamera = None, timeout_ms:int = 5000):
+    def wait_for_frame(self, camera:pylon.InstantCamera = None, timeout_ms:int = 5000):
         #wait until camera is triggered
         if camera is None:
             camera = self.cam
@@ -107,6 +107,7 @@ class PylonCamera(Camera):
         #right now this will fail loud, maybe this should fail more discreetly but i dont think it should wait forever
         image = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
         if image.GrabSucceded():
+            
             return image.Array
         
     def disconnect_camera(self, camera) -> None:
