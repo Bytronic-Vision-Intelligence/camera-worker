@@ -2,6 +2,7 @@ from pypylon import pylon
 import numpy as np
 from .Cameras import Camera
 import time
+import logging
 
 class PylonCamera(Camera):
     def __init__(self):
@@ -16,15 +17,15 @@ class PylonCamera(Camera):
             device = pylon.TlFactory.GetInstance().CreateFirstDevice()
             cam = pylon.InstantCamera(device)
             camera_info_message = f"Camera found: {cam.GetDeviceInfo().GetModelName()}"
-            self.logger.info(camera_info_message)
+            logging.info(camera_info_message)
             self.cam = cam
             return cam
         except Exception as e:
             raise RuntimeError("Error finding camera: " + str(e)) from e
         
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
-        #connect to the camera and return the camera object - this is very messy clean this up please
-        #function will return the camera object
+        # Connect to the camera and return the camera object.
+        # Function returns the camera object.
         timeout_s = timeout_ms / 1000.0
         start = time.time()
 
@@ -36,14 +37,14 @@ class PylonCamera(Camera):
                     self.cam.Open()
                 except Exception as e:
                     # Open may fail transiently; continue to wait until timeout
-                    self.logger.error("Initial Open() failed; entering wait loop")
+                    logging.error("Initial Open() failed; entering wait loop")
 
             while not self.cam.IsOpen():
                 if time.time() - start > timeout_s:
                     raise TimeoutError("Timeout while waiting for camera to open.")
                 time.sleep(0.1)
 
-            self.logger.info("Camera connected successfully")
+            logging.info("Camera connected successfully")
             return self.cam
 
         except Exception as e:
@@ -65,7 +66,7 @@ class PylonCamera(Camera):
         try:
             grab_result = camera.GrabOne(timeout_ms)  # pylon expects ms
         except Exception as e:
-            self.logger.error("GrabOne raised an exception")
+            logging.error("GrabOne raised an exception")
             raise RuntimeError("Failed to grab image") from e
 
         try:
@@ -83,14 +84,14 @@ class PylonCamera(Camera):
                 converted = converter.Convert(grab_result)
                 img = converted.Array
 
-            self.logger.info("Captured image shape: %s", getattr(img, "shape", None))
+            logging.info("Captured image shape: %s", getattr(img, "shape", None))
             return np.asarray(img)
 
         finally:
             try:
                 grab_result.Release()
             except Exception:
-                self.logger.error("Failed to release grab_result", exc_info=True)
+                logging.error("Failed to release grab_result", exc_info=True)
 
     def wait_for_frame(seld, camera:pylon.InstantCamera = None, timeout_ms:int = 5000):
         #wait until camera is triggered
