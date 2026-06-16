@@ -1,4 +1,5 @@
 import cv2
+from PIL import Image
 from Dependencies import loadConfig
 import time
 import threading
@@ -11,6 +12,7 @@ from Dependencies.CameraLibrary.PylonCamera import PylonCamera
 import logging
 import os
 from sys import getsizeof
+import array
 #
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -21,11 +23,13 @@ MESSAGE = loadConfig.return_config_value("message")
 CAMERA_TYPE = loadConfig.return_config_value("camera_type") 
 
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-#check if .log file exists
+BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
 
+#check if .log file exists
 if not os.path.exists(LOGGING_FILE):
-    with open(LOGGING_FILE, "w") as file:
-        file.write("")
+    file = open(LOGGING_FILE,"w")
+    file.write("")
+    file.close()
 
 logging.basicConfig(
     filename=LOGGING_FILE,
@@ -119,7 +123,7 @@ def main():
 
             logging.info("Capturing image...")
             image = camera.capture_image()
-            image=cv2.resize(image, (1920,1080))
+
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes+date_time
             print(packet[getsizeof(packet)-52:])
@@ -129,7 +133,7 @@ def main():
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.exception(f"Error publishing image: {e}")
+                    logging.log(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
 
