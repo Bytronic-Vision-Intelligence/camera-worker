@@ -3,12 +3,13 @@ from PIL import Image
 import time
 import numpy as np
 class Camera:
+    global image_buffer
+    global newest_buffer_item
+
     def __init__(self):
         self.camera = None
         #global buffer variables
-        image_buffer = [0]
-        newest_buffer = 0
-
+        
     def define_Buffer(self, width:int = 1920, height:int = 1080, buffer_size:int = 1):
         if width < 1 or height < 1:
             raise ValueError("image size must be larger than 0 on both axis.")
