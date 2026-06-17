@@ -1,5 +1,4 @@
 import cv2
-from PIL import Image
 from Dependencies import loadConfig
 import time
 import threading
@@ -12,7 +11,6 @@ from Dependencies.CameraLibrary.PylonCamera import PylonCamera
 import logging
 import os
 from sys import getsizeof
-import array
 #
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -68,6 +66,7 @@ def subscribe_listener(ip: str, port: int, trigger_topic: str, result_queue: Que
         result_queue.put(decoded)
 
     client.subscribe(trigger_topic, on_message)
+    stop_event.wait()
 
 def encode_image_to_bytes(image: np.ndarray) -> bytes:
     # Encode the image as JPEG and return the bytes
@@ -108,10 +107,10 @@ def main():
     time.sleep(0.1)
     try:
         while True:
-            time.sleep(0.1)
 
             try:
-                msg = event_queue.get_nowait()
+                msg = event_queue.get(timeout = 1.0)
+                start_time = time.time()
             except Empty:
                 continue
 
@@ -126,7 +125,6 @@ def main():
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes+date_time
-            print(packet[getsizeof(packet)-52:])
 
             logging.info(f"Publishing image... of size {getsizeof(image_bytes)}")
             if image is not None:
@@ -136,7 +134,7 @@ def main():
                     logging.log(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
-
+            print(f"imaging took a total of {time.time()-start_time}")
             logging.info("Image published. Waiting for next capture request...")
 
     except KeyboardInterrupt:

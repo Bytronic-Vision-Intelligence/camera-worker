@@ -106,7 +106,7 @@ class PylonCamera(Camera):
             return
         #right now this will fail loud, maybe this should fail more discreetly but i dont think it should wait forever
         image = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
-        if image.GrabSucceded():
+        if image.g :
             
             return image.Array
         
