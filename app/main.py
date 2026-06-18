@@ -1,13 +1,8 @@
-import cv2
-from Dependencies import loadConfig
-import time
-import threading
-from queue import Empty, Queue
-import numpy as np
+from dependencies import loadConfig
+from dependencies.camera_library.cameras_pylon import *
+from dependencies.mqtt_functions import *
+from dependencies.data_functions import *
 
-from mqtt_client import MQTTClient, MQTTConfig
-from Dependencies.CameraLibrary.Cameras import Camera
-from Dependencies.CameraLibrary.PylonCamera import PylonCamera
 import logging
 import os
 from sys import getsizeof
@@ -51,49 +46,6 @@ def set_camera_class(camera_type: str):
     camera.connect_to_camera()
     return camera
 
-def subscribe_listener(ip: str, port: int, trigger_topic: str, result_queue: Queue, stop_event: threading.Event):
-    config = MQTTConfig(host=IP, port=PORT)
-    client = MQTTClient(config)
-    client.connect()
-
-    def on_message(topic: str, payload: str) -> None:
-        # Handler signature used by mqtt_client.MQTTClient.subscribe
-        try:
-            decoded = payload
-        except Exception:
-            decoded = payload
-        #logging.log(f"Capture request received: {trigger_topic}")
-        result_queue.put(decoded)
-
-    client.subscribe(trigger_topic, on_message)
-    stop_event.wait()
-
-def encode_image_to_bytes(image: np.ndarray) -> bytes:
-    # Encode the image as JPEG and return the bytes
-    if image is None:
-        raise ValueError("Input image is None.")
-    if not isinstance(image, np.ndarray):
-        raise ValueError("Input image must be a numpy array.")
-    
-    success, encoded_image = cv2.imencode('.jpg', image)
-
-    if not success:
-        raise RuntimeError("Failed to encode image to JPEG format.")
-    return encoded_image.tobytes()
-
-def encode_date_time_to_bytes() -> bytes:
-    date_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    return date_time.encode("utf-8")
-
-def start_subscribe_thread(ip: str, port: int, topic: str, queue: Queue, stop_event: threading.Event) -> threading.Thread:
-    thread = threading.Thread(
-        target=subscribe_listener,
-        args=(ip, port, topic, queue, stop_event),
-        daemon=True,
-    )
-    thread.start()
-    return thread
-
 def main():
     camera = set_camera_class(CAMERA_TYPE)
 
@@ -102,12 +54,18 @@ def main():
     client.connect()
 
     event_queue = Queue()
-    stop_event = threading.Event()
-    subscribe_thread = start_subscribe_thread(IP, PORT, TRIGGER_TOPIC, event_queue, stop_event)
+    stop_event = Event()
+    subscribe_thread = start_subscribe_thread(
+        IP, 
+        PORT, 
+        TRIGGER_TOPIC, 
+        event_queue, 
+        stop_event
+        )
+    
     time.sleep(0.1)
     try:
         while True:
-
             try:
                 msg = event_queue.get(timeout = 1.0)
                 start_time = time.time()
@@ -127,6 +85,7 @@ def main():
             packet = image_bytes+date_time
 
             logging.info(f"Publishing image... of size {getsizeof(image_bytes)}")
+
             if image is not None:
                 try:
                     client.publish(IMAGE_TOPIC, packet)
@@ -134,6 +93,7 @@ def main():
                     logging.log(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
+
             print(f"imaging took a total of {time.time()-start_time}")
             logging.info("Image published. Waiting for next capture request...")
 

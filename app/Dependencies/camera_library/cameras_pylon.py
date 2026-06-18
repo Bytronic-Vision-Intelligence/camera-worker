@@ -1,6 +1,6 @@
 from pypylon import pylon
 import numpy as np
-from .Cameras import Camera
+from .cameras import Camera
 import time
 import logging
 
@@ -53,7 +53,13 @@ class PylonCamera(Camera):
                 self.cam.Close()
             raise RuntimeError("Failed to open camera within timeout.") from e
         
-    def capture_image(self, camera: pylon.InstantCamera = None, timeout_ms: int = 5000, is_converted=True) -> np.ndarray:
+    def capture_image(
+            self, 
+            camera: pylon.InstantCamera = None, 
+            timeout_ms: int = 5000, 
+            is_converted=True
+            ) -> np.ndarray:
+        
         #capture an image from the camera and return it as a numpy array
         #function will return the image as a numpy array
         if camera is None:
@@ -93,7 +99,12 @@ class PylonCamera(Camera):
             except Exception:
                 logging.error("Failed to release grab_result", exc_info=True)
 
-    def wait_for_frame(self, camera:pylon.InstantCamera = None, timeout_ms:int = 5000):
+    def wait_for_frame(
+            self, 
+            camera:pylon.InstantCamera = None, 
+            timeout_ms:int = 5000
+            ):
+        
         #wait until camera is triggered
         if camera is None:
             camera = self.cam
