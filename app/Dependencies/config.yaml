@@ -5,4 +5,5 @@ image_topic: "magnapower/sortyboi/camer1/image"
 trigger_time_topic: "magnapower/sortyboi/camer1/trigger_time"
 message: null
 camera_type: opencv
+trigger_type: internal
 buffer_size: 0

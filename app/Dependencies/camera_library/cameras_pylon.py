@@ -1,8 +1,10 @@
 from pypylon import pylon
-import numpy as np
-from .cameras import Camera
-import time
+from cameras import Camera
+from queue import Queue
+from threading import Event, Thread
 import logging
+import time
+import numpy as np
 
 class PylonCamera(Camera):
     def __init__(self):
@@ -100,12 +102,14 @@ class PylonCamera(Camera):
                 logging.error("Failed to release grab_result", exc_info=True)
 
     def wait_for_frame(
-            self, 
-            camera:pylon.InstantCamera = None, 
-            timeout_ms:int = 5000
+            self,
+            queue: Queue,
+            stop_event: Event,
+            camera: pylon.InstantCamera = None,
+            timeout_ms: int = 5000,
+            is_converted: bool = True,
             ):
-        
-        #wait until camera is triggered
+        """Continuously retrieve frames from the camera and enqueue image arrays."""
         if camera is None:
             camera = self.cam
         if camera is None:
@@ -114,13 +118,40 @@ class PylonCamera(Camera):
             raise RuntimeError("camera is not open")
 
         if not camera.IsGrabbing():
-            return
-        #right now this will fail loud, maybe this should fail more discreetly but i dont think it should wait forever
-        image = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
-        if image.g :
-            
-            return image.Array
-        
+            camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
+
+        try:
+            while not stop_event.is_set():
+                try:
+                    grab_result = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
+                except Exception as e:
+                    logging.error("Failed to retrieve frame: %s", e, exc_info=True)
+                    continue
+
+                try:
+                    if not grab_result.GrabSucceeded():
+                        error_code = getattr(grab_result, "ErrorCode", None)
+                        error_desc = getattr(grab_result, "ErrorDescription", None)
+                        logging.error("Grab failed with error code %s, description: %s", error_code, error_desc)
+                        continue
+
+                    img = grab_result.Array
+                    if is_converted:
+                        converter = pylon.ImageFormatConverter()
+                        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+                        converted = converter.Convert(grab_result)
+                        img = converted.Array
+
+                    queue.put(np.asarray(img))
+                finally:
+                    try:
+                        grab_result.Release()
+                    except Exception:
+                        logging.error("Failed to release grab_result", exc_info=True)
+        finally:
+            if camera.IsGrabbing():
+                camera.StopGrabbing()
+
     def disconnect_camera(self, camera) -> None:
         #disconnect the camera
         #function will return nothing
