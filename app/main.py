@@ -77,12 +77,12 @@ def main():
     event_queue = Queue()
     stop_event = Event()
 
-    if TRIGGER_TYPE == "external" or CAMERA_TYPE == "opencv":
+    if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
         is_external_trigger = True
     else:
         is_external_trigger = False
 
-    if is_external_trigger:
+    if not is_external_trigger:
         subscribe_thread = start_subscribe_thread(
             IP,
             PORT,
@@ -113,7 +113,7 @@ def main():
             date_time = encode_date_time_to_bytes()
 
             logging.info("Capturing image...")
-            if is_external_trigger:
+            if not is_external_trigger:
                 image = camera.capture_image()
             else:
                 if not isinstance(msg, np.ndarray):
