@@ -32,9 +32,8 @@ IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
 
 #check if .log file exists
 if not os.path.exists(LOGGING_FILE):
-    file = open(LOGGING_FILE,"w")
-    file.write("")
-    file.close()
+    with open(LOGGING_FILE, "w") as file:
+        file.write("")
 
 logging.basicConfig(
     filename=LOGGING_FILE,
