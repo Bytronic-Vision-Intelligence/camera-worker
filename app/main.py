@@ -11,7 +11,9 @@ from dependencies.camera_library.cameras import Camera
 from dependencies.camera_library.cameras_pylon import PylonCamera
 from dependencies.mqtt_functions import start_subscribe_thread
 from dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
+from dependencies.archive_functions import *
 from mqtt_client import MQTTClient, MQTTConfig
+
 
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -19,11 +21,14 @@ TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
 IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
+
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
+ARCHIVE_DIRECTORY = loadConfig.return_config_value("archive_directory")
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
+IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
 
 #check if .log file exists
 if not os.path.exists(LOGGING_FILE):
@@ -100,6 +105,7 @@ def main():
     time.sleep(0.1)
     try:
         while True:
+            
             try:
                 msg = event_queue.get(timeout = 1.0)
                 start_time = time.time()
@@ -124,6 +130,9 @@ def main():
             if image is None:
                 logging.error("No image available to encode.")
                 continue
+            
+            if IS_ARCHIVED:
+                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes + date_time
@@ -143,10 +152,12 @@ def main():
 
     except KeyboardInterrupt:
         logging.info("Shutting down and exiting.")
+
     finally:
         stop_event.set()
         if subscribe_thread is not None and subscribe_thread.is_alive():
             subscribe_thread.join(timeout=2)
+
         camera.disconnect_camera(camera.cam)
 
 if __name__ == "__main__":
