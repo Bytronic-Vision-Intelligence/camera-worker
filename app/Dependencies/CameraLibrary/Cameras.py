@@ -40,5 +40,5 @@ class CameraHeightMap(Camera):
     
     def __init__(self):
         super().__init__()
-    def connect_to_camera(self, timeout=30) -> CameraHeightMap: pass
+    def connect_to_camera(self, timeout=30): pass
     def capture_image(self) -> ndarray: pass
