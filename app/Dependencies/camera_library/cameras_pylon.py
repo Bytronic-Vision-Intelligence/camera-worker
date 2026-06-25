@@ -1,7 +1,7 @@
 from pypylon import pylon
 from dependencies.camera_library.cameras import Camera
 from queue import Queue
-from threading import Event, Thread
+from threading import Event
 import logging
 import time
 import numpy as np
