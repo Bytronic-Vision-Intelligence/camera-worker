@@ -6,7 +6,7 @@ from queue import Empty, Queue
 import numpy as np
 
 from mqtt_client import MQTTClient, MQTTConfig
-from Dependencies.CameraLibrary import *
+from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
 
 import logging
 import os
