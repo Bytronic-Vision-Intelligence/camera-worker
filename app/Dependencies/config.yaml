@@ -4,4 +4,11 @@ trigger_topic: "magnapower/sortyboi/inference/trigger"
 image_topic: "magnapower/sortyboi/camer1/image"
 trigger_time_topic: "magnapower/sortyboi/camer1/trigger_time"
 message: null
-camera_type: pylon
+
+
+camera_type: opencv
+trigger_type: internal
+buffer_size: 0
+
+is_archived: "true"
+archive_directory: "C:/Users/AmyHarrison/camera_worker/camera-worker/archive"

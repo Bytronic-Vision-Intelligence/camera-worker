@@ -1,10 +1,17 @@
-import cv2
-from Dependencies import loadConfig
+import logging
+import os
 import time
-import threading
+from sys import getsizeof
 from queue import Empty, Queue
+from threading import Event, Thread
 import numpy as np
 
+from dependencies import loadConfig
+from dependencies.camera_library.cameras import Camera
+from dependencies.camera_library.cameras_pylon import PylonCamera
+from dependencies.mqtt_functions import start_subscribe_thread
+from dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
+from dependencies.archive_functions import *
 from mqtt_client import MQTTClient, MQTTConfig
 from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
 
@@ -18,10 +25,16 @@ TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
 IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
-CAMERA_TYPE = loadConfig.return_config_value("camera_type")
-LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-#check if dio.log exists
 
+CAMERA_TYPE = loadConfig.return_config_value("camera_type")
+TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
+
+ARCHIVE_DIRECTORY = loadConfig.return_config_value("archive_directory")
+LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
+BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
+IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
+
+#check if .log file exists
 if not os.path.exists(LOGGING_FILE):
     with open(LOGGING_FILE, "w") as file:
         file.write("")
@@ -50,43 +63,15 @@ def set_camera_class(camera_type: str):
     camera.connect_to_camera()
     return camera
 
-def subscribe_listener(ip: str, port: int, trigger_topic: str, result_queue: Queue, stop_event: threading.Event):
-    config = MQTTConfig(host=IP, port=PORT)
-    client = MQTTClient(config)
-    client.connect()
+def start_frame_thread(
+        queue: Queue,
+        camera: PylonCamera,
+        stop_event: Event,
+        ) -> Thread:
 
-    def on_message(topic: str, payload: str) -> None:
-        # Handler signature used by mqtt_client.MQTTClient.subscribe
-        try:
-            decoded = payload
-        except Exception:
-            decoded = payload
-        #logging.log(f"Capture request received: {trigger_topic}")
-        result_queue.put(decoded)
-
-    client.subscribe(trigger_topic, on_message)
-
-def encode_image_to_bytes(image: np.ndarray) -> bytes:
-    # Encode the image as JPEG and return the bytes
-    if image is None:
-        raise ValueError("Input image is None.")
-    if not isinstance(image, np.ndarray):
-        raise ValueError("Input image must be a numpy array.")
-    
-    success, encoded_image = cv2.imencode('.jpg', image)
-
-    if not success:
-        raise RuntimeError("Failed to encode image to JPEG format.")
-    return encoded_image.tobytes()
-
-def encode_date_time_to_bytes() -> bytes:
-    date_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    return date_time.encode("utf-8")
-
-def start_subscribe_thread(ip: str, port: int, topic: str, queue: Queue, stop_event: threading.Event) -> threading.Thread:
-    thread = threading.Thread(
-        target=subscribe_listener,
-        args=(ip, port, topic, queue, stop_event),
+    thread = Thread(
+        target=camera.wait_for_frame,
+        args=(queue, stop_event, camera),
         daemon=True,
     )
     thread.start()
@@ -100,15 +85,35 @@ def main():
     client.connect()
 
     event_queue = Queue()
-    stop_event = threading.Event()
-    subscribe_thread = start_subscribe_thread(IP, PORT, TRIGGER_TOPIC, event_queue, stop_event)
+    stop_event = Event()
 
+    if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
+        is_external_trigger = True
+    else:
+        is_external_trigger = False
+
+    if not is_external_trigger:
+        subscribe_thread = start_subscribe_thread(
+            IP,
+            PORT,
+            TRIGGER_TOPIC,
+            event_queue,
+            stop_event,
+        )
+    else:
+        subscribe_thread = start_frame_thread(
+            event_queue,
+            camera,
+            stop_event,
+        )
+    
+    time.sleep(0.1)
     try:
         while True:
-            time.sleep(0.1)
-
+            
             try:
-                msg = event_queue.get_nowait()
+                msg = event_queue.get(timeout = 1.0)
+                start_time = time.time()
             except Empty:
                 continue
 
@@ -119,29 +124,46 @@ def main():
             date_time = encode_date_time_to_bytes()
 
             logging.info("Capturing image...")
-            image = camera.capture_image()
-            image=cv2.resize(image, (1920,1080))
-            image_bytes = encode_image_to_bytes(image)
-            packet = image_bytes+date_time
-            print(packet[getsizeof(packet)-52:])
+            if not is_external_trigger:
+                image = camera.capture_image()
+            else:
+                if not isinstance(msg, np.ndarray):
+                    logging.error("Expected image frame from queue, got %s", type(msg))
+                    continue
+                image = msg
 
-            logging.info("Publishing image...")
+            if image is None:
+                logging.error("No image available to encode.")
+                continue
+            
+            if IS_ARCHIVED:
+                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
+
+            image_bytes = encode_image_to_bytes(image)
+            packet = image_bytes + date_time
+
+            logging.info(f"Publishing image... of size {getsizeof(image_bytes)}")
+
             if image is not None:
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.exception(f"Error publishing image: {e}")
+                    logging.log(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
 
+            print(f"imaging took a total of {time.time()-start_time}")
             logging.info("Image published. Waiting for next capture request...")
 
     except KeyboardInterrupt:
-        logging.info("Shutting down subscribe listener and exiting.")
+        logging.info("Shutting down and exiting.")
+
     finally:
         stop_event.set()
-        if subscribe_thread.is_alive():
+        if subscribe_thread is not None and subscribe_thread.is_alive():
             subscribe_thread.join(timeout=2)
+
+        camera.disconnect_camera(camera.cam)
 
 if __name__ == "__main__":
     main()
