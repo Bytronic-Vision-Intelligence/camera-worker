@@ -1,5 +1,5 @@
 from pypylon import pylon
-from dependencies.camera_library.cameras import Camera
+from Dependencies.CameraLibrary.cameras import Camera
 from queue import Queue
 from threading import Event
 import logging

@@ -6,14 +6,14 @@ from queue import Empty, Queue
 from threading import Event, Thread
 import numpy as np
 
-from dependencies import loadConfig
-from dependencies.camera_library.cameras import Camera
-from dependencies.camera_library.cameras_pylon import PylonCamera
-from dependencies.mqtt_functions import start_subscribe_thread
-from dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
-from dependencies.archive_functions import *
+from Dependencies import loadConfig
+from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
+from Dependencies.mqtt_functions import start_subscribe_thread
+from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
+from Dependencies.archive_functions import archive_image
 from mqtt_client import MQTTClient, MQTTConfig
 
+from sys import getsizeof
 
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -51,6 +51,8 @@ def set_camera_class(camera_type: str):
         camera = Camera()
     elif camera_type == "pylon":
         camera = PylonCamera()
+    elif camera_type == "ljs":
+        camera = LJSCamera()
     else:
         raise ValueError(f"Unsupported camera type: {camera_type}")
     

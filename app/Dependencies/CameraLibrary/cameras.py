@@ -1,5 +1,6 @@
 import cv2
 import logging
+from numpy import ndarray
 
 class Camera:
     def connect_to_camera(self):        
@@ -32,3 +33,12 @@ class Camera:
             raise Exception("Failed to capture image from OpenCV camera.")
         logging.info(f"Image captured")
         return frame
+
+class CameraHeightMap(Camera):
+    "Used for height map cameras"
+    "As of now not useful, but be aware that you are using height map images with this class."
+    
+    def __init__(self):
+        super().__init__()
+    def connect_to_camera(self, timeout=30): pass
+    def capture_image(self) -> ndarray: pass
