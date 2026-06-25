@@ -1,6 +1,6 @@
 from threading import Event, Thread
 from mqtt_client import MQTTClient, MQTTConfig
-from queue import Empty, Queue
+from queue import Queue
 
 def start_subscribe_thread(
         ip: str, 
