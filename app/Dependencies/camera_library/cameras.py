@@ -1,7 +1,4 @@
 import cv2
-from PIL import Image
-import time
-import numpy as np
 import logging
 
 class Camera:
