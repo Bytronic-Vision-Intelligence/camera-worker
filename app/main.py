@@ -10,7 +10,7 @@ from Dependencies import loadConfig
 from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
-from Dependencies.archive_functions import *
+from Dependencies.archive_functions import archive_image
 from mqtt_client import MQTTClient, MQTTConfig
 
 from sys import getsizeof
