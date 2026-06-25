@@ -6,8 +6,8 @@ from queue import Empty, Queue
 import numpy as np
 
 from mqtt_client import MQTTClient, MQTTConfig
-from Dependencies.CameraLibrary.Cameras import Camera
-from Dependencies.CameraLibrary.PylonCamera import PylonCamera
+from Dependencies.CameraLibrary import *
+
 import logging
 import os
 from sys import getsizeof
@@ -42,6 +42,8 @@ def set_camera_class(camera_type: str):
         camera = Camera()
     elif camera_type == "pylon":
         camera = PylonCamera()
+    elif camera_type == "ljs":
+        camera = LJSCamera()
     else:
         raise ValueError(f"Unsupported camera type: {camera_type}")
     
