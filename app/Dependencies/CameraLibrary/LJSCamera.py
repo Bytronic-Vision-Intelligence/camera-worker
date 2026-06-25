@@ -6,7 +6,7 @@ This controller is used for height-map style scanners.
 import logging
 import socket
 
-from .Cameras import CameraHeightMap
+from .cameras import CameraHeightMap
 from .ftp_reciever import LJS_FTP_Receiver
 
 logger = logging.getLogger(__name__)
