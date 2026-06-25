@@ -39,6 +39,6 @@ class CameraHeightMap(Camera):
     "As of now not useful, but be aware that you are using height map images with this class."
     
     def __init__(self):
-        self.camera = None
+        super().__init__()
     def connect_to_camera(self, timeout=30) -> CameraHeightMap: pass
     def capture_image(self) -> ndarray: pass
