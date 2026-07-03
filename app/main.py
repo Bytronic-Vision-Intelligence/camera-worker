@@ -19,6 +19,8 @@ IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
+SAVE_IMAGES = loadConfig.return_config_value("save_images")
+SAVE_DIR = loadConfig.return_config_value("save_dir")
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 #check if dio.log exists
 
@@ -64,6 +66,11 @@ def subscribe_listener(ip: str, port: int, trigger_topic: str, result_queue: Que
 
     client.subscribe(trigger_topic, on_message)
 
+def save_image(image: np.ndarray, save_dir: str, timestamp: str) -> None:
+    os.makedirs(save_dir, exist_ok=True)
+    filename = timestamp.replace(":", "-").replace(" ", "_") + ".jpg"
+    cv2.imwrite(os.path.join(save_dir, filename), image)
+
 def encode_image_to_bytes(image: np.ndarray) -> bytes:
     # Encode the image as JPEG and return the bytes
     if image is None:
@@ -78,7 +85,8 @@ def encode_image_to_bytes(image: np.ndarray) -> bytes:
     return encoded_image.tobytes()
 
 def encode_date_time_to_bytes() -> bytes:
-    date_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    from datetime import datetime
+    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     return date_time.encode("utf-8")
 
 def start_subscribe_thread(ip: str, port: int, topic: str, queue: Queue, stop_event: threading.Event) -> threading.Thread:
@@ -115,11 +123,19 @@ def main():
                 continue
 
             date_time = encode_date_time_to_bytes()
+            timestamp_str = date_time.decode("utf-8")
 
             logging.info("Capturing image...")
             image = camera.capture_image()
             image=cv2.resize(image, (1920,1080))
             image_bytes = encode_image_to_bytes(image)
+
+            if SAVE_IMAGES:
+                threading.Thread(
+                    target=save_image,
+                    args=(image, SAVE_DIR, timestamp_str),
+                    daemon=True,
+                ).start()
             packet = image_bytes+date_time
             print(packet[getsizeof(packet)-52:])
 
