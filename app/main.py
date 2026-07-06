@@ -11,9 +11,8 @@ from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
+from Dependencies.archive_functions import save_image_to_file
 from mqtt_client import MQTTClient, MQTTConfig
-
-from sys import getsizeof
 
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -136,14 +135,17 @@ def main():
                 continue
             
             if IS_ARCHIVED:
-                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
+                ms = int((start_time % 1) * 1000)
+                archive_name = f"{CAMERA_TYPE}_{time.strftime('%Y%m%d_%H%M%S')}_{ms:03d}"
+                archive_image(image, ARCHIVE_DIRECTORY, archive_name)
 
             image_bytes = encode_image_to_bytes(image)
 
             if SAVE_IMAGES:
-                threading.Thread(
-                    target=save_image,
-                    args=(image, SAVE_DIR, timestamp_str),
+                safe_timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(start_time))
+                Thread(
+                    target=save_image_to_file,
+                    args=(image, SAVE_DIR, safe_timestamp),
                     daemon=True,
                 ).start()
             packet = image_bytes + date_time
@@ -154,7 +156,7 @@ def main():
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.log(f"Error publishing image: {e}")
+                    logging.error(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
 
