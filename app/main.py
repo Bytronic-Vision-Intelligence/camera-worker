@@ -141,7 +141,7 @@ def main():
             image_bytes = encode_image_to_bytes(image)
 
             if SAVE_IMAGES:
-                threading.Thread(
+                Thread(
                     target=save_image,
                     args=(image, SAVE_DIR, timestamp_str),
                     daemon=True,
