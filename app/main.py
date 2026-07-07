@@ -5,6 +5,7 @@ from sys import getsizeof
 from queue import Empty, Queue
 from threading import Event, Thread
 import numpy as np
+from pathlib import Path
 
 from Dependencies import loadConfig
 from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
@@ -25,10 +26,12 @@ MESSAGE = loadConfig.return_config_value("message")
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
-ARCHIVE_DIRECTORY = loadConfig.return_config_value("archive_directory")
+ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
 IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
+ARCHIVE_PARAMS = loadConfig.return_config_value("archive_parameters")
+
 
 #check if .log file exists
 if not os.path.exists(LOGGING_FILE):
@@ -133,7 +136,7 @@ def main():
                 continue
             
             if IS_ARCHIVED:
-                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
+                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"), ARCHIVE_PARAMS)
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes + date_time
