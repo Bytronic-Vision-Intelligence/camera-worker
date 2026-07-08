@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 
 from Dependencies import loadConfig
-from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
+from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera, FlirCamera
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
@@ -54,6 +54,8 @@ def set_camera_class(camera_type: str):
         camera = Camera()
     elif camera_type == "pylon":
         camera = PylonCamera()
+    elif camera_type == "flir":
+        camera = FlirCamera()
     elif camera_type == "ljs":
         camera = LJSCamera()
     else:
