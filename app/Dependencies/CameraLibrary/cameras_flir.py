@@ -81,7 +81,6 @@ class FlirCamera(Camera):
             raise RuntimeError("Failed to connect FLIR camera.") from e
 
     def capture_image(self, camera=None, timeout_ms: int = 5000, is_converted: bool = True) -> np.ndarray:
-        import PySpin
 
         if camera is None:
             camera = self.cam

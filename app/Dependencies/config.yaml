@@ -1,13 +1,13 @@
 ip: localhost
 port: 1883
-trigger_topic: "magnapower/sortyboi/inference/trigger"
-image_topic: "magnapower/sortyboi/camer1/image"
-trigger_time_topic: "magnapower/sortyboi/camer1/trigger_time"
+trigger_topic: "indonesia/inference/trigger"
+image_topic: "indonesia/camera/image"
+trigger_time_topic: "indonesia/camera/trigger_time"
 message: null
 
 
-camera_type: opencv
-trigger_type: internal
+camera_type: flir
+trigger_type: external
 buffer_size: 0
 
 is_archived: "true"

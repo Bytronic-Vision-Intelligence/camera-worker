@@ -66,13 +66,14 @@ def set_camera_class(camera_type: str):
 
 def start_frame_thread(
         queue: Queue,
-        camera: PylonCamera,
+        camera: Camera,
         stop_event: Event,
         ) -> Thread:
-
+    # Do not pass the wrapper as `camera=` — wait_for_frame expects the
+    # vendor handle (self.cam). Omitting it lets Pylon/FLIR use self.cam.
     thread = Thread(
         target=camera.wait_for_frame,
-        args=(queue, stop_event, camera),
+        args=(queue, stop_event),
         daemon=True,
     )
     thread.start()
