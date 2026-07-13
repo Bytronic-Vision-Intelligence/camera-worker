@@ -163,6 +163,14 @@ def main():
 
     finally:
         stop_event.set()
+        # End acquisition first so a blocked GetNextImage unblocks and the
+        # frame thread can exit before we DeInit (avoids leaving the camera locked).
+        try:
+            if hasattr(camera, "stop_acquisition"):
+                camera.stop_acquisition()
+        except Exception:
+            logging.debug("stop_acquisition during shutdown failed", exc_info=True)
+
         if subscribe_thread is not None and subscribe_thread.is_alive():
             subscribe_thread.join(timeout=2)
 
