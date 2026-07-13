@@ -16,6 +16,39 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _set_enum_node(nodemap, node_name: str, entry_name: str) -> bool:
+    """Set a GenICam enumeration node if available/writable. Returns True on success."""
+    try:
+        node = PySpin.CEnumerationPtr(nodemap.GetNode(node_name))
+        if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
+            logger.warning("Node %s is not writable", node_name)
+            return False
+        entry = PySpin.CEnumEntryPtr(node.GetEntryByName(entry_name))
+        if not PySpin.IsAvailable(entry) or not PySpin.IsReadable(entry):
+            logger.warning("Node %s entry %s is unavailable", node_name, entry_name)
+            return False
+        node.SetIntValue(entry.GetValue())
+        logger.info("%s set to %s", node_name, entry_name)
+        return True
+    except Exception:
+        logger.warning("Failed setting %s=%s", node_name, entry_name, exc_info=True)
+        return False
+
+
+def _set_bool_node(nodemap, node_name: str, value: bool) -> bool:
+    try:
+        node = PySpin.CBooleanPtr(nodemap.GetNode(node_name))
+        if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
+            logger.warning("Node %s is not writable", node_name)
+            return False
+        node.SetValue(bool(value))
+        logger.info("%s set to %s", node_name, value)
+        return True
+    except Exception:
+        logger.warning("Failed setting %s=%s", node_name, value, exc_info=True)
+        return False
+
+
 class FlirCamera(Camera):
     def __init__(self):
         super().__init__()
@@ -25,6 +58,51 @@ class FlirCamera(Camera):
         self.processor = None
         self.pixel_format_out = None
         self._trigger: SpinnakerHardwareTrigger | None = None
+        self._mask_mono16_msbs = False
+
+    def _configure_raw_pixel_format(self, nodemap) -> None:
+        """AX5 defaults to 8-bit; switch to 14-bit raw so values are not 0–255.
+
+        Preferred: PixelFormat=Mono14, CMOSBitDepth=bit14bit.
+        Mono16 is accepted but bits 14–15 must be masked (always 1 on AX5).
+        """
+        try:
+            from Dependencies import loadConfig
+
+            cfg = loadConfig.get_config()
+            pixel_format = str(cfg.get("pixel_format", "Mono14"))
+            cmos_depth = str(cfg.get("cmos_bit_depth", "bit14bit"))
+            temp_linear = str(cfg.get("temperature_linear_mode", "false")).lower()
+        except Exception:
+            pixel_format = "Mono14"
+            cmos_depth = "bit14bit"
+            temp_linear = "false"
+
+        # CMOS bit depth must match PixelFormat when switching 8 <-> 14 bit.
+        _set_enum_node(nodemap, "CMOSBitDepth", cmos_depth)
+
+        if not _set_enum_node(nodemap, "PixelFormat", pixel_format):
+            # Fallbacks if preferred format is missing on this firmware
+            for fallback in ("Mono14", "Mono16", "Mono8"):
+                if fallback == pixel_format:
+                    continue
+                if _set_enum_node(nodemap, "PixelFormat", fallback):
+                    pixel_format = fallback
+                    break
+
+        self._mask_mono16_msbs = pixel_format == "Mono16"
+
+        if temp_linear in ("true", "1", "yes", "on"):
+            _set_bool_node(nodemap, "TemperatureLinearMode", True)
+
+        try:
+            pf = PySpin.CEnumerationPtr(nodemap.GetNode("PixelFormat"))
+            if PySpin.IsAvailable(pf) and PySpin.IsReadable(pf):
+                cur = PySpin.CEnumEntryPtr(pf.GetCurrentEntry())
+                if PySpin.IsAvailable(cur) and PySpin.IsReadable(cur):
+                    logger.info("Active PixelFormat: %s", cur.GetSymbolic())
+        except Exception:
+            pass
 
     def _find_camera(self):
         self.cam = None
@@ -68,6 +146,8 @@ class FlirCamera(Camera):
                 if PySpin.IsAvailable(continuous) and PySpin.IsReadable(continuous):
                     acquisition_mode.SetIntValue(continuous.GetValue())
 
+            self._configure_raw_pixel_format(nodemap)
+
             trigger_cfg = HardwareTriggerConfig.from_app_config()
             self._trigger = SpinnakerHardwareTrigger(self.cam, trigger_cfg)
             self._trigger.configure(nodemap)
@@ -106,7 +186,7 @@ class FlirCamera(Camera):
         except Exception:
             logger.debug("stop_acquisition failed", exc_info=True)
 
-    def capture_image(self, camera=None, timeout_ms: int = 5000, is_converted: bool = True) -> np.ndarray:
+    def capture_image(self, camera=None, timeout_ms: int = 5000, is_converted: bool = False) -> np.ndarray:
         if camera is None:
             camera = self.cam
         if camera is None:
@@ -136,9 +216,22 @@ class FlirCamera(Camera):
                 converted = self.processor.Convert(grab_result, self.pixel_format_out)
                 img = converted.GetNDArray()
             else:
+                # Native sensor buffer (Mono14/Mono16 → HxW uint16), not BGR8.
                 img = grab_result.GetNDArray()
+                if self._mask_mono16_msbs and getattr(img, "dtype", None) == np.uint16:
+                    # AX5 Mono16: bits 14–15 are always 1; keep 14-bit payload.
+                    img = np.asarray(img) & np.uint16(0x3FFF)
 
-            logging.info("Captured image shape: %s", getattr(img, "shape", None))
+            logging.info(
+                "Captured image shape: %s dtype=%s min=%s max=%s bpp=%s pf=%s converted=%s",
+                getattr(img, "shape", None),
+                getattr(img, "dtype", None),
+                int(np.min(img)) if img is not None else None,
+                int(np.max(img)) if img is not None else None,
+                grab_result.GetBitsPerPixel(),
+                grab_result.GetPixelFormatName(),
+                is_converted,
+            )
             return np.asarray(img)
         finally:
             try:
@@ -152,7 +245,7 @@ class FlirCamera(Camera):
         stop_event: Event,
         camera=None,
         timeout_ms: int = 5000,
-        is_converted: bool = True,
+        is_converted: bool = False,
     ):
         if camera is None:
             camera = self.cam

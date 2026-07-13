@@ -38,9 +38,15 @@ def save_image_to_file(image:ndarray, directory:str, filename:str, archive_param
         os.makedirs(save_directory, exist_ok=True)
 
         image_path = os.path.join(save_directory, f"{filename}.png")
+        # Persist the array as-is (e.g. Mono16 HxW). Do not convert to BGR.
         success = imwrite(image_path, image)
         if success:
-            logging.info("image successfully written to archive")
+            logging.info(
+                "image successfully written to archive shape=%s dtype=%s path=%s",
+                getattr(image, "shape", None),
+                getattr(image, "dtype", None),
+                image_path,
+            )
         else:
             logging.error(f"failed to write image to archive: {image_path}")
     except Exception as e:

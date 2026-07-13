@@ -13,9 +13,14 @@ trigger_source: Line0
 # RisingEdge / FallingEdge / AnyEdge — flip if the gate is idle-high vs idle-low
 trigger_activation: RisingEdge
 buffer_size: 0
+# AX5 raw radiometric stream (default camera is 8-bit — that keeps pixels 0–255)
+pixel_format: Mono14
+cmos_bit_depth: bit14bit
+# true = temperature-linear counts; false = raw 14-bit signal
+temperature_linear_mode: false
 
 is_archived: "true"
-archive_directory: "save_dir"
+archive_directory: "../save_dir"
 archive_parameters:
   archive_freq: "daily"
   archive_storage: 50 # GB
