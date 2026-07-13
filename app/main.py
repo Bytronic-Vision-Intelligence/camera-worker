@@ -34,6 +34,7 @@ ARCHIVE_PARAMS = loadConfig.return_config_value("archive_parameters")
 
 
 #check if .log file exists
+os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
 if not os.path.exists(LOGGING_FILE):
     with open(LOGGING_FILE, "w") as file:
         file.write("")
