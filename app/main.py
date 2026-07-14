@@ -23,6 +23,7 @@ TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
+CAMERA_ID = loadConfig.return_config_value("camera_id")
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
 ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
@@ -146,7 +147,9 @@ def main() -> int:
                 continue
             
             if IS_ARCHIVED:
-                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"), ARCHIVE_PARAMS)
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                archive_filename = f"cam{CAMERA_ID}_{CAMERA_TYPE}_{timestamp}"
+                archive_image(image, ARCHIVE_DIRECTORY, archive_filename, ARCHIVE_PARAMS, CAMERA_ID)
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes + date_time

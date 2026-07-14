@@ -7,7 +7,7 @@ import datetime
 
 from Dependencies.data_functions import prepare_image_for_jpeg
 
-def save_image_to_file(image:ndarray, directory:str, filename:str, archive_params:dict):
+def save_image_to_file(image:ndarray, directory:str, filename:str, archive_params:dict, camera_id=None):
     ''' Saves an image to a specified file directory
     
     Args:
@@ -15,6 +15,7 @@ def save_image_to_file(image:ndarray, directory:str, filename:str, archive_param
         directory: a directory location
         filename: the name of the image
         params: frequency of saving, when to delete etc.
+        camera_id: optional id used as save_dir/date/cam{id}
     '''
 
     subfolder = None
@@ -36,7 +37,12 @@ def save_image_to_file(image:ndarray, directory:str, filename:str, archive_param
     if filename == "":
         logging.error("Filename cannot be empty, please provide a valid file name")
     try:
-        save_directory = os.path.join(base_directory, subfolder) if subfolder else base_directory
+        path_parts = [base_directory]
+        if subfolder:
+            path_parts.append(subfolder)
+        if camera_id is not None:
+            path_parts.append(f"cam{camera_id}")
+        save_directory = os.path.join(*path_parts)
         os.makedirs(save_directory, exist_ok=True)
 
         image_path = os.path.join(save_directory, f"{filename}.png")
@@ -56,7 +62,7 @@ def save_image_to_file(image:ndarray, directory:str, filename:str, archive_param
     except Exception as e:
         logging.error(f"failed to write image to archive error: {e}")
 
-def archive_image(image:ndarray, directory:str, filename:str, archive_params:dict):
+def archive_image(image:ndarray, directory:str, filename:str, archive_params:dict, camera_id=None):
     '''starts a worker thread that will run the save_image_to_file function on a given image
     
     Args:
@@ -71,7 +77,8 @@ def archive_image(image:ndarray, directory:str, filename:str, archive_params:dic
             image,
             directory,
             filename,
-            archive_params
+            archive_params,
+            camera_id,
         ),
         daemon=True
     ).start()
