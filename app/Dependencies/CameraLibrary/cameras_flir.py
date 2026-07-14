@@ -109,6 +109,16 @@ class FlirCamera(Camera):
     def _find_camera(self):
         self.cam = None
 
+        try:
+            from Dependencies import loadConfig
+
+            serial = str(loadConfig.return_config_value("serial_number") or "").strip()
+        except Exception:
+            serial = ""
+
+        if not serial:
+            raise RuntimeError("serial_number is required in config.yaml for FLIR cameras")
+
         self.system = PySpin.System.GetInstance()
         self.cam_list = self.system.GetCameras()
         count = self.cam_list.GetSize()
@@ -119,10 +129,20 @@ class FlirCamera(Camera):
             self.system = None
             raise RuntimeError("No FLIR cameras detected")
 
-        self.cam = self.cam_list.GetByIndex(0)
+        try:
+            self.cam = self.cam_list.GetBySerial(serial)
+        except Exception as e:
+            raise RuntimeError(
+                f"FLIR camera with serial_number={serial} not found "
+                f"(detected={count})"
+            ) from e
+
         if self.cam is None or not self.cam.IsValid():
-            raise RuntimeError("Failed to get a valid FLIR camera handle")
-        logger.info("FLIR camera found")
+            raise RuntimeError(
+                f"FLIR camera with serial_number={serial} not found "
+                f"(detected={count})"
+            )
+        logger.info("FLIR camera found (serial=%s)", serial)
         return self.cam
 
     def connect_to_camera(self, timeout_ms: int = 5000):

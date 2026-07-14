@@ -7,6 +7,7 @@ message: null
 
 
 camera_type: flir
+serial_number: 75002571
 trigger_type: external
 # AX5: Line0 is the opto-isolated GPI (light gate). Keep Line0 unless wiring differs.
 trigger_source: Line0
