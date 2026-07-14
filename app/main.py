@@ -18,12 +18,14 @@ from mqtt_client import MQTTClient, MQTTConfig
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
 TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
-IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
 CAMERA_ID = loadConfig.return_config_value("camera_id")
+IMAGE_TOPIC = loadConfig.return_config_value("image_topic").replace(
+    "/camera/", f"/camera_{CAMERA_ID}/"
+)
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
 ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
