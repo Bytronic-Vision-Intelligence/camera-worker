@@ -20,6 +20,40 @@ from Dependencies import loadConfig
 logger = logging.getLogger(__name__)
 
 
+class CameraLossError(RuntimeError):
+    """Camera device link lost (e.g. Spinnaker -1010)."""
+
+
+def is_camera_loss_error(exc: BaseException) -> bool:
+    """True when the exception indicates a dropped camera link."""
+    seen: set[int] = set()
+    current: Optional[BaseException] = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        msg = str(current).lower()
+        if (
+            "-1010" in msg
+            or "try reconnecting the device" in msg
+            or "error reading from device" in msg
+        ):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def report_camera_loss(exc: BaseException, *, queue: Optional[Queue] = None) -> CameraLossError:
+    """Log/print a single CAMERA LOSS report and optionally enqueue it for main."""
+    loss = CameraLossError(str(exc))
+    logger.critical("CAMERA LOSS: %s", exc)
+    print(f"CAMERA LOSS: {exc}", flush=True)
+    if queue is not None:
+        try:
+            queue.put(loss)
+        except Exception:
+            logger.debug("Failed enqueueing CameraLossError", exc_info=True)
+    return loss
+
+
 @dataclass(frozen=True)
 class HardwareTriggerConfig:
     """Settings for an external light-gate / GPIO trigger."""
@@ -89,6 +123,9 @@ def wait_for_gpio_edge_frames(
         except Exception as e:
             if stop_event.is_set():
                 break
+            if is_camera_loss_error(e):
+                report_camera_loss(e, queue=queue)
+                break
             logger.error("Line status read failed: %s", e, exc_info=True)
             time.sleep(0.05)
             continue
@@ -103,6 +140,9 @@ def wait_for_gpio_edge_frames(
                 queue.put(capture_frame())
             except Exception as e:
                 if stop_event.is_set():
+                    break
+                if is_camera_loss_error(e):
+                    report_camera_loss(e, queue=queue)
                     break
                 logger.error("Failed to capture after GPIO edge: %s", e, exc_info=True)
 

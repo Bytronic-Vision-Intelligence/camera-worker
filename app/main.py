@@ -9,12 +9,11 @@ from pathlib import Path
 
 from Dependencies import loadConfig
 from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera, FlirCamera
+from Dependencies.CameraLibrary.hardware_trigger import CameraLossError
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
 from mqtt_client import MQTTClient, MQTTConfig
-
-from sys import getsizeof
 
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -80,7 +79,7 @@ def start_frame_thread(
     thread.start()
     return thread
 
-def main():
+def main() -> int:
     camera = set_camera_class(CAMERA_TYPE)
 
     config = MQTTConfig(host=IP, port=PORT)
@@ -89,6 +88,7 @@ def main():
 
     event_queue = Queue()
     stop_event = Event()
+    exit_code = 0
 
     if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
         is_external_trigger = True
@@ -119,6 +119,12 @@ def main():
                 start_time = time.time()
             except Empty:
                 continue
+
+            if isinstance(msg, CameraLossError):
+                logging.critical("CAMERA LOSS: %s", msg)
+                print(f"CAMERA LOSS: {msg}", flush=True)
+                exit_code = 1
+                break
 
             if msg is None:
                 logging.info("Received invalid trigger payload; ignoring.")
@@ -151,7 +157,7 @@ def main():
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.log(f"Error publishing image: {e}")
+                    logging.error("Error publishing image: %s", e)
             else:
                 logging.info("Failed to capture image.")
 
@@ -176,5 +182,7 @@ def main():
 
         camera.disconnect_camera(camera.cam)
 
+    return exit_code
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

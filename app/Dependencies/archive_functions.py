@@ -5,6 +5,8 @@ import logging
 import threading
 import datetime
 
+from Dependencies.data_functions import prepare_image_for_jpeg
+
 def save_image_to_file(image:ndarray, directory:str, filename:str, archive_params:dict):
     ''' Saves an image to a specified file directory
     
@@ -38,13 +40,15 @@ def save_image_to_file(image:ndarray, directory:str, filename:str, archive_param
         os.makedirs(save_directory, exist_ok=True)
 
         image_path = os.path.join(save_directory, f"{filename}.png")
-        # Persist the array as-is (e.g. Mono16 HxW). Do not convert to BGR.
-        success = imwrite(image_path, image)
+        # Same min-max → uint8 stretch as the MQTT/UI JPEG path. Raw Mono14
+        # counts (~3k–4k) look black in most viewers when saved as 16-bit PNG.
+        to_save = prepare_image_for_jpeg(image)
+        success = imwrite(image_path, to_save)
         if success:
             logging.info(
                 "image successfully written to archive shape=%s dtype=%s path=%s",
-                getattr(image, "shape", None),
-                getattr(image, "dtype", None),
+                getattr(to_save, "shape", None),
+                getattr(to_save, "dtype", None),
                 image_path,
             )
         else:

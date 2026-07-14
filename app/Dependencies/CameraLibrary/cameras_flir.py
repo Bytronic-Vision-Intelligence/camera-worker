@@ -1,6 +1,8 @@
 from Dependencies.CameraLibrary.cameras import Camera
 from Dependencies.CameraLibrary.hardware_trigger import (
     HardwareTriggerConfig,
+    is_camera_loss_error,
+    report_camera_loss,
     wait_for_gpio_edge_frames,
 )
 from Dependencies.CameraLibrary.spinnaker_trigger import SpinnakerHardwareTrigger
@@ -279,6 +281,9 @@ class FlirCamera(Camera):
                 continue
             except Exception as e:
                 if stop_event.is_set():
+                    break
+                if is_camera_loss_error(e):
+                    report_camera_loss(e, queue=queue)
                     break
                 logger.error("Failed to retrieve FLIR frame: %s", e, exc_info=True)
 
