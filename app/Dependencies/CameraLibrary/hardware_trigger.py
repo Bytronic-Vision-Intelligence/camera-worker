@@ -1,6 +1,6 @@
 """Reusable external / hardware trigger helpers for camera backends.
 
-Vendor-specific setup lives in ``spinnaker_trigger`` / ``pylon_trigger``.
+Vendor-specific setup lives in ``spinnaker_trigger``.
 Shared pieces here: config loading, edge detection, and the GPIO poll loop.
 """
 

@@ -1,24 +1,18 @@
 from pypylon import pylon
 from Dependencies.CameraLibrary.cameras import Camera
-from Dependencies.CameraLibrary.hardware_trigger import (
-    HardwareTriggerConfig,
-    wait_for_gpio_edge_frames,
-)
-from Dependencies.CameraLibrary.pylon_trigger import PylonHardwareTrigger
 from queue import Queue
 from threading import Event
 import logging
 import time
 import numpy as np
 
-
 class PylonCamera(Camera):
     def __init__(self):
         super().__init__()
-        self.cam = None
-        self._trigger: PylonHardwareTrigger | None = None
 
     def _find_camera(self) -> pylon.InstantCamera:
+        #find the first available camera and return it
+        #function will return the camera object
         self.cam = None
 
         try:
@@ -30,8 +24,10 @@ class PylonCamera(Camera):
             return cam
         except Exception as e:
             raise RuntimeError("Error finding camera: " + str(e)) from e
-
+        
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
+        # Connect to the camera and return the camera object.
+        # Function returns the camera object.
         timeout_s = timeout_ms / 1000.0
         start = time.time()
 
@@ -41,7 +37,8 @@ class PylonCamera(Camera):
             if not self.cam.IsOpen():
                 try:
                     self.cam.Open()
-                except Exception:
+                except Exception as e:
+                    # Open may fail transiently; continue to wait until timeout
                     logging.error("Initial Open() failed; entering wait loop")
 
             while not self.cam.IsOpen():
@@ -49,27 +46,24 @@ class PylonCamera(Camera):
                     raise TimeoutError("Timeout while waiting for camera to open.")
                 time.sleep(0.1)
 
-            trigger_cfg = HardwareTriggerConfig.from_app_config()
-            self._trigger = PylonHardwareTrigger(self.cam, trigger_cfg)
-            self._trigger.configure()
-            if self._trigger.uses_gpio_poll:
-                self._trigger.sample_idle_line()
-
             logging.info("Camera connected successfully")
             return self.cam
 
         except Exception as e:
+            # ensure camera is closed on failure
             if self.cam is not None and self.cam.IsOpen():
                 self.cam.Close()
             raise RuntimeError("Failed to open camera within timeout.") from e
-
+        
     def capture_image(
-            self,
-            camera: pylon.InstantCamera = None,
-            timeout_ms: int = 5000,
+            self, 
+            camera: pylon.InstantCamera = None, 
+            timeout_ms: int = 5000, 
             is_converted=True
             ) -> np.ndarray:
-
+        
+        #capture an image from the camera and return it as a numpy array
+        #function will return the image as a numpy array
         if camera is None:
             camera = self.cam
         if camera is None:
@@ -78,7 +72,7 @@ class PylonCamera(Camera):
             raise RuntimeError("camera is not open")
 
         try:
-            grab_result = camera.GrabOne(timeout_ms)
+            grab_result = camera.GrabOne(timeout_ms)  # pylon expects ms
         except Exception as e:
             logging.error("GrabOne raised an exception")
             raise RuntimeError("Failed to grab image") from e
@@ -115,6 +109,7 @@ class PylonCamera(Camera):
             timeout_ms: int = 5000,
             is_converted: bool = True,
             ):
+        """Continuously retrieve frames from the camera and enqueue image arrays."""
         if camera is None:
             camera = self.cam
         if camera is None:
@@ -122,33 +117,14 @@ class PylonCamera(Camera):
         if not camera.IsOpen():
             raise RuntimeError("camera is not open")
 
-        if self._trigger is not None and self._trigger.uses_gpio_poll:
-            wait_for_gpio_edge_frames(
-                read_line=self._trigger.read_line,
-                capture_frame=lambda: self.capture_image(
-                    camera=camera,
-                    timeout_ms=timeout_ms,
-                    is_converted=is_converted,
-                ),
-                queue=queue,
-                stop_event=stop_event,
-                config=self._trigger.config,
-                initial_status=self._trigger.last_line_status,
-            )
-            return
-
         if not camera.IsGrabbing():
             camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
 
         try:
             while not stop_event.is_set():
                 try:
-                    grab_result = camera.RetrieveResult(
-                        timeout_ms, pylon.TimeoutHandling_ThrowException
-                    )
+                    grab_result = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException)
                 except Exception as e:
-                    if stop_event.is_set():
-                        break
                     logging.error("Failed to retrieve frame: %s", e, exc_info=True)
                     continue
 
@@ -156,11 +132,7 @@ class PylonCamera(Camera):
                     if not grab_result.GrabSucceeded():
                         error_code = getattr(grab_result, "ErrorCode", None)
                         error_desc = getattr(grab_result, "ErrorDescription", None)
-                        logging.error(
-                            "Grab failed with error code %s, description: %s",
-                            error_code,
-                            error_desc,
-                        )
+                        logging.error("Grab failed with error code %s, description: %s", error_code, error_desc)
                         continue
 
                     img = grab_result.Array
@@ -181,11 +153,7 @@ class PylonCamera(Camera):
                 camera.StopGrabbing()
 
     def disconnect_camera(self, camera) -> None:
-        if self._trigger is not None:
-            try:
-                self._trigger.reset()
-            except Exception:
-                logging.debug("Failed resetting Pylon hardware trigger", exc_info=True)
-            self._trigger = None
+        #disconnect the camera
+        #function will return nothing
         if camera is not None and camera.IsOpen():
             camera.Close()
