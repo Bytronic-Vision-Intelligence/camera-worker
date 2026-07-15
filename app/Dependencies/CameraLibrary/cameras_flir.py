@@ -104,7 +104,10 @@ class FlirCamera(Camera):
                 if PySpin.IsAvailable(cur) and PySpin.IsReadable(cur):
                     logger.info("Active PixelFormat: %s", cur.GetSymbolic())
         except Exception:
-            pass
+            logger.debug(
+                "Unable to read/log active PixelFormat; continuing initialization",
+                exc_info=True,
+            )
 
     def _find_camera(self):
         self.cam = None
