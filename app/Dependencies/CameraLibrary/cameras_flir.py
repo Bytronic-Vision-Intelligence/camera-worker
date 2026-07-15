@@ -71,7 +71,7 @@ class FlirCamera(Camera):
         try:
             from Dependencies import loadConfig
 
-            cfg = loadConfig.get_config()
+            cfg = loadConfig.get_section("camera_settings")
             pixel_format = str(cfg.get("pixel_format", "Mono14"))
             cmos_depth = str(cfg.get("cmos_bit_depth", "bit14bit"))
             temp_linear = str(cfg.get("temperature_linear_mode", "false")).lower()
@@ -115,7 +115,7 @@ class FlirCamera(Camera):
         try:
             from Dependencies import loadConfig
 
-            serial = str(loadConfig.return_config_value("serial_number") or "").strip()
+            serial = str(loadConfig.return_config_value("camera.serial_number") or "").strip()
         except Exception:
             serial = ""
 

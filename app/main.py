@@ -21,18 +21,23 @@ TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 
-CAMERA_TYPE = loadConfig.return_config_value("camera_type")
-CAMERA_ID = loadConfig.return_config_value("camera_id")
-IMAGE_TOPIC = loadConfig.return_config_value("image_topic").replace(
-    "/camera/", f"/camera_{CAMERA_ID}/"
-)
-TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
+CAMERA_TYPE = loadConfig.return_config_value("camera.camera_type")
+try:
+    CAMERA_ID = loadConfig.return_config_value("camera.serial_number")
+except KeyError:
+    CAMERA_ID = None
+if CAMERA_ID is not None:
+    CAMERA_ID = str(CAMERA_ID).strip() or None
+IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
+if CAMERA_ID:
+    IMAGE_TOPIC = IMAGE_TOPIC.replace("/camera/", f"/camera_{CAMERA_ID}/")
+TRIGGER_TYPE = loadConfig.return_config_value("trigger.trigger_type")
 
-ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
+ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archiving.archive_directory"))
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
-IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
-ARCHIVE_PARAMS = loadConfig.return_config_value("archive_parameters")
+BUFFER_SIZE = loadConfig.get_section("camera_settings").get("buffer_size")
+IS_ARCHIVED = str(loadConfig.return_config_value("archiving.is_archived")).lower() == "true"
+ARCHIVE_PARAMS = loadConfig.return_config_value("archiving.archive_parameters")
 
 
 #check if .log file exists
@@ -150,7 +155,7 @@ def main() -> int:
             
             if IS_ARCHIVED:
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                archive_filename = f"cam{CAMERA_ID}_{CAMERA_TYPE}_{timestamp}"
+                archive_filename = f"cam{CAMERA_ID or '0'}_{CAMERA_TYPE}_{timestamp}"
                 archive_image(image, ARCHIVE_DIRECTORY, archive_filename, ARCHIVE_PARAMS, CAMERA_ID)
 
             image_bytes = encode_image_to_bytes(image)

@@ -1,5 +1,6 @@
 from pypylon import pylon
 from Dependencies.CameraLibrary.cameras import Camera
+from Dependencies import loadConfig
 from queue import Queue
 from threading import Event
 import logging
@@ -11,20 +12,63 @@ class PylonCamera(Camera):
         super().__init__()
 
     def _find_camera(self) -> pylon.InstantCamera:
-        #find the first available camera and return it
-        #function will return the camera object
+        """Open by ``camera.serial_number`` when set; otherwise first available device."""
         self.cam = None
 
         try:
-            device = pylon.TlFactory.GetInstance().CreateFirstDevice()
-            cam = pylon.InstantCamera(device)
-            camera_info_message = f"Camera found: {cam.GetDeviceInfo().GetModelName()}"
-            logging.info(camera_info_message)
+            serial = str(loadConfig.return_config_value("camera.serial_number") or "").strip()
+        except Exception:
+            serial = ""
+
+        try:
+            tl_factory = pylon.TlFactory.GetInstance()
+
+            if not serial:
+                device = tl_factory.CreateFirstDevice()
+                cam = pylon.InstantCamera(device)
+                logging.info(
+                    "Camera found: %s (first device, serial=%s)",
+                    cam.GetDeviceInfo().GetModelName(),
+                    cam.GetDeviceInfo().GetSerialNumber(),
+                )
+                self.cam = cam
+                return cam
+
+            devices = tl_factory.EnumerateDevices()
+            if not devices:
+                raise RuntimeError("No Pylon cameras detected")
+
+            matched = None
+            for info in devices:
+                if info.GetSerialNumber() == serial:
+                    matched = info
+                    break
+
+            if matched is None:
+                available = [info.GetSerialNumber() for info in devices]
+                raise RuntimeError(
+                    f"Pylon camera with serial_number={serial} not found "
+                    f"(detected={available})"
+                )
+
+            cam = pylon.InstantCamera(tl_factory.CreateDevice(matched))
+            logging.info(
+                "Camera found: %s (serial=%s)",
+                cam.GetDeviceInfo().GetModelName(),
+                serial,
+            )
             self.cam = cam
             return cam
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError("Error finding camera: " + str(e)) from e
-        
+
+    def _apply_camera_settings(self, camera: pylon.InstantCamera) -> None:
+        """Apply optional ``camera_settings`` from the nested config (no trigger setup)."""
+        """Set as None for now, camera settings to be added when needed"""
+        return None
+
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
         # Connect to the camera and return the camera object.
         # Function returns the camera object.
@@ -45,6 +89,8 @@ class PylonCamera(Camera):
                 if time.time() - start > timeout_s:
                     raise TimeoutError("Timeout while waiting for camera to open.")
                 time.sleep(0.1)
+
+            self._apply_camera_settings(self.cam)
 
             logging.info("Camera connected successfully")
             return self.cam

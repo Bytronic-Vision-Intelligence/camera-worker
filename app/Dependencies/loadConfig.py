@@ -1,5 +1,9 @@
-import yaml
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 
 def _config_path() -> Path:
@@ -19,14 +23,28 @@ def get_config() -> dict:
     return config
 
 
-def return_config_value(key: str) -> str:
-    """Return the value for `key` from the loaded config.
+def get_section(section: str) -> dict:
+    """Return a top-level config subsection as a dict (empty dict if missing)."""
+    if not section:
+        raise ValueError("Section cannot be empty.")
+    value = get_config().get(section)
+    return value if isinstance(value, dict) else {}
 
-    Raises ValueError for empty keys and KeyError when the key is missing.
+
+def return_config_value(key: str) -> Any:
+    """Return the value for a dot-separated key path in the loaded config.
+
+    Examples: ``camera.camera_type``, ``archiving.archive_directory``.
+
+    Raises ValueError for empty keys and KeyError when the path is missing.
     """
     if not key:
         raise ValueError("Key cannot be empty.")
+
     config = get_config()
-    if key not in config:
-        raise KeyError(f"Key '{key}' not found in configuration.")
-    return config[key]
+    current: Any = config
+    for part in key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            raise KeyError(f"Key '{key}' not found in configuration.")
+        current = current[part]
+    return current

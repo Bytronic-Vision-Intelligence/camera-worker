@@ -66,7 +66,7 @@ class HardwareTriggerConfig:
     @classmethod
     def from_app_config(cls, cfg: Optional[dict] = None) -> "HardwareTriggerConfig":
         if cfg is None:
-            cfg = loadConfig.get_config()
+            cfg = loadConfig.get_section("trigger")
         trigger_type = str(cfg.get("trigger_type", "")).lower()
         return cls(
             enabled=trigger_type == "external",

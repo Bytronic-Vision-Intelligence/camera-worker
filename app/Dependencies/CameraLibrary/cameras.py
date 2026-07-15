@@ -3,6 +3,10 @@ import logging
 from numpy import ndarray
 
 class Camera:
+    def __init__(self):
+        self.camera = None
+        self.cam = None
+
     def connect_to_camera(self):        
         """ Connect to the camera based on the specified camera type.
         Raises:
@@ -17,7 +21,10 @@ class Camera:
             except Exception:
                 pass
             self.camera = None
+            self.cam = None
             raise Exception("Failed to open OpenCV camera.")
+        # Alias used by main shutdown: disconnect_camera(camera.cam)
+        self.cam = self.camera
         logging.info(f"connected to camera {self.camera.getBackendName()}")
         return self.camera
     
@@ -34,6 +41,21 @@ class Camera:
         logging.info(f"Image captured")
         return frame
 
+    def disconnect_camera(self, camera=None) -> None:
+        """Release the OpenCV capture. Subclasses typically override this."""
+        handle = camera if camera is not None else self.camera
+        if handle is None:
+            return
+        try:
+            handle.release()
+        except Exception:
+            logging.debug("Failed releasing OpenCV camera", exc_info=True)
+        if self.camera is handle:
+            self.camera = None
+        if self.cam is handle:
+            self.cam = None
+        logging.info("OpenCV camera disconnected")
+
 class CameraHeightMap(Camera):
     "Used for height map cameras"
     "As of now not useful, but be aware that you are using height map images with this class."
@@ -42,3 +64,4 @@ class CameraHeightMap(Camera):
         super().__init__()
     def connect_to_camera(self, timeout=30): pass
     def capture_image(self) -> ndarray: pass
+    def disconnect_camera(self, camera=None) -> None: pass
