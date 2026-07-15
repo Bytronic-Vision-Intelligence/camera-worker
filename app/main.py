@@ -119,7 +119,6 @@ def main():
                 continue
 
             date_time = encode_date_time_to_bytes()
-            timestamp_str = date_time.decode("utf-8")
 
             logging.info("Capturing image...")
             if not is_external_trigger:
