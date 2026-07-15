@@ -6,7 +6,11 @@ trigger_time_topic: "indonesia/camera/trigger_time"
 message: null
 
 camera:
-  camera_type: opencv
+  camera_type: gige
+  camera_ip: 192.168.2.10
+  serial_number: 25165090
+camera_settings:
+  pixel_format: BayerRG8
 trigger:
   trigger_type: internal
 

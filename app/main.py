@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 
 from Dependencies import loadConfig
-from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera, FlirCamera
+from Dependencies.CameraLibrary import Camera, PylonCamera, GigeCamera, LJSCamera, FlirCamera
 from Dependencies.CameraLibrary.hardware_trigger import CameraLossError
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
@@ -62,6 +62,8 @@ def set_camera_class(camera_type: str):
         camera = Camera()
     elif camera_type == "pylon":
         camera = PylonCamera()
+    elif camera_type == "gige":
+        camera = GigeCamera()
     elif camera_type == "flir":
         camera = FlirCamera()
     elif camera_type == "ljs":
@@ -98,10 +100,7 @@ def main() -> int:
     stop_event = Event()
     exit_code = 0
 
-    if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
-        is_external_trigger = True
-    else:
-        is_external_trigger = False
+    is_external_trigger = str(TRIGGER_TYPE).strip().lower() == "external"
 
     if not is_external_trigger:
         subscribe_thread = start_subscribe_thread(
