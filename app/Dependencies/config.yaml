@@ -21,7 +21,7 @@ cmos_bit_depth: bit14bit
 temperature_linear_mode: false
 
 is_archived: "true"
-archive_directory: "../save_dir"
+archive_directory: "save_dir"
 archive_parameters:
   archive_freq: "daily"
   archive_storage: 50 # GB
