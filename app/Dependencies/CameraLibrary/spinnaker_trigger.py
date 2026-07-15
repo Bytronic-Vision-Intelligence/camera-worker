@@ -29,7 +29,11 @@ def set_enum(nodemap, node_name: str, entry_name: str) -> bool:
                 if PySpin.IsAvailable(ep) and PySpin.IsReadable(ep):
                     available.append(ep.GetSymbolic())
         except Exception:
-            pass
+            logger.debug(
+                "Failed to enumerate available entries for node %s",
+                node_name,
+                exc_info=True,
+            )
         logger.warning(
             "Enum entry %s.%s is not available (have: %s)",
             node_name,
