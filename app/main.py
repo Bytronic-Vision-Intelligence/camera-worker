@@ -5,32 +5,38 @@ from sys import getsizeof
 from queue import Empty, Queue
 from threading import Event, Thread
 import numpy as np
+from pathlib import Path
 
 from Dependencies import loadConfig
-from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
+from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera, FlirCamera
+from Dependencies.CameraLibrary.hardware_trigger import CameraLossError
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
 from mqtt_client import MQTTClient, MQTTConfig
 
-from sys import getsizeof
-
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
 TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
-IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 
 CAMERA_TYPE = loadConfig.return_config_value("camera_type")
+CAMERA_ID = loadConfig.return_config_value("camera_id")
+IMAGE_TOPIC = loadConfig.return_config_value("image_topic").replace(
+    "/camera/", f"/camera_{CAMERA_ID}/"
+)
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
-ARCHIVE_DIRECTORY = loadConfig.return_config_value("archive_directory")
+ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
 IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
+ARCHIVE_PARAMS = loadConfig.return_config_value("archive_parameters")
+
 
 #check if .log file exists
+os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
 if not os.path.exists(LOGGING_FILE):
     with open(LOGGING_FILE, "w") as file:
         file.write("")
@@ -51,6 +57,8 @@ def set_camera_class(camera_type: str):
         camera = Camera()
     elif camera_type == "pylon":
         camera = PylonCamera()
+    elif camera_type == "flir":
+        camera = FlirCamera()
     elif camera_type == "ljs":
         camera = LJSCamera()
     else:
@@ -61,19 +69,20 @@ def set_camera_class(camera_type: str):
 
 def start_frame_thread(
         queue: Queue,
-        camera: PylonCamera,
+        camera: Camera,
         stop_event: Event,
         ) -> Thread:
-
+    # Do not pass the wrapper as `camera=` — wait_for_frame expects the
+    # vendor handle (self.cam). Omitting it lets Pylon/FLIR use self.cam.
     thread = Thread(
         target=camera.wait_for_frame,
-        args=(queue, stop_event, camera),
+        args=(queue, stop_event),
         daemon=True,
     )
     thread.start()
     return thread
 
-def main():
+def main() -> int:
     camera = set_camera_class(CAMERA_TYPE)
 
     config = MQTTConfig(host=IP, port=PORT)
@@ -82,6 +91,7 @@ def main():
 
     event_queue = Queue()
     stop_event = Event()
+    exit_code = 0
 
     if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
         is_external_trigger = True
@@ -113,6 +123,12 @@ def main():
             except Empty:
                 continue
 
+            if isinstance(msg, CameraLossError):
+                logging.critical("CAMERA LOSS: %s", msg)
+                print(f"CAMERA LOSS: {msg}", flush=True)
+                exit_code = 1
+                break
+
             if msg is None:
                 logging.info("Received invalid trigger payload; ignoring.")
                 continue
@@ -133,7 +149,9 @@ def main():
                 continue
             
             if IS_ARCHIVED:
-                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                archive_filename = f"cam{CAMERA_ID}_{CAMERA_TYPE}_{timestamp}"
+                archive_image(image, ARCHIVE_DIRECTORY, archive_filename, ARCHIVE_PARAMS, CAMERA_ID)
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes + date_time
@@ -144,7 +162,7 @@ def main():
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.log(f"Error publishing image: {e}")
+                    logging.error("Error publishing image: %s", e)
             else:
                 logging.info("Failed to capture image.")
 
@@ -156,10 +174,20 @@ def main():
 
     finally:
         stop_event.set()
+        # End acquisition first so a blocked GetNextImage unblocks and the
+        # frame thread can exit before we DeInit (avoids leaving the camera locked).
+        try:
+            if hasattr(camera, "stop_acquisition"):
+                camera.stop_acquisition()
+        except Exception:
+            logging.debug("stop_acquisition during shutdown failed", exc_info=True)
+
         if subscribe_thread is not None and subscribe_thread.is_alive():
             subscribe_thread.join(timeout=2)
 
         camera.disconnect_camera(camera.cam)
 
+    return exit_code
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

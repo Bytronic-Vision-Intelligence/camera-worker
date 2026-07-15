@@ -3,5 +3,6 @@
 *.log
 *archive
 .venv/
-save_dir/
 *.png
+*.jpg
+save_dir/
