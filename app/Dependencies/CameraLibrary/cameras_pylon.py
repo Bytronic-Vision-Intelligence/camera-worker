@@ -66,32 +66,8 @@ class PylonCamera(Camera):
 
     def _apply_camera_settings(self, camera: pylon.InstantCamera) -> None:
         """Apply optional ``camera_settings`` from the nested config (no trigger setup)."""
-        cfg = loadConfig.get_section("camera_settings")
-        if not cfg:
-            return
-
-        buffer_size = cfg.get("buffer_size")
-        try:
-            buffer_size = int(buffer_size) if buffer_size is not None else 0
-        except (TypeError, ValueError):
-            buffer_size = 0
-        if buffer_size > 0:
-            try:
-                camera.MaxNumBuffer.Value = buffer_size
-                logging.info("MaxNumBuffer set to %s", buffer_size)
-            except Exception:
-                logging.warning("Failed setting MaxNumBuffer=%s", buffer_size, exc_info=True)
-
-        pixel_format = cfg.get("pixel_format")
-        if pixel_format:
-            try:
-                if hasattr(camera, "PixelFormat") and camera.PixelFormat.IsWritable():
-                    camera.PixelFormat.Value = str(pixel_format)
-                    logging.info("PixelFormat set to %s", pixel_format)
-            except Exception:
-                logging.warning(
-                    "Failed setting PixelFormat=%s", pixel_format, exc_info=True
-                )
+        """Set as None for now, camera settings to be added when needed"""
+        return None
 
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
         # Connect to the camera and return the camera object.
