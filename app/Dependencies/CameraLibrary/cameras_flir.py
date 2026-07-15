@@ -330,10 +330,7 @@ class FlirCamera(Camera):
 
         self.cam = None
         self._trigger = None
-        try:
-            del camera
-        except Exception:
-            pass
+        del camera
 
         if self.cam_list is not None:
             try:
