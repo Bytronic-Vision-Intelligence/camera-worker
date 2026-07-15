@@ -162,8 +162,11 @@ class FlirCamera(Camera):
                 model = PySpin.CStringPtr(nodemap.GetNode("DeviceModelName"))
                 if PySpin.IsAvailable(model) and PySpin.IsReadable(model):
                     logger.info("Camera model: %s", model.GetValue())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(
+                    "Unable to read FLIR DeviceModelName; continuing initialization: %s",
+                    e,
+                )
 
             acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionMode"))
             if PySpin.IsAvailable(acquisition_mode) and PySpin.IsWritable(acquisition_mode):
