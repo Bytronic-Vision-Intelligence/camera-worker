@@ -346,7 +346,7 @@ class FlirCamera(Camera):
             try:
                 del self.cam_list
             except Exception:
-                pass
+                logger.debug("Failed deleting FLIR camera list reference", exc_info=True)
             self.cam_list = None
 
         if self.system is not None:
