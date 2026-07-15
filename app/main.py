@@ -21,18 +21,18 @@ TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
 TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
 MESSAGE = loadConfig.return_config_value("message")
 
-CAMERA_TYPE = loadConfig.return_config_value("camera_type")
-CAMERA_ID = loadConfig.return_config_value("camera_id")
+CAMERA_TYPE = loadConfig.return_config_value("camera.camera_type")
+CAMERA_ID = loadConfig.return_config_value("camera.serial_number")
 IMAGE_TOPIC = loadConfig.return_config_value("image_topic").replace(
     "/camera/", f"/camera_{CAMERA_ID}/"
 )
-TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
+TRIGGER_TYPE = loadConfig.return_config_value("trigger.trigger_type")
 
-ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archive_directory"))
+ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archiving.archive_directory"))
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
-IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
-ARCHIVE_PARAMS = loadConfig.return_config_value("archive_parameters")
+BUFFER_SIZE = loadConfig.return_config_value("camera_settings.buffer_size")
+IS_ARCHIVED = str(loadConfig.return_config_value("archiving.is_archived")).lower() == "true"
+ARCHIVE_PARAMS = loadConfig.return_config_value("archiving.archive_parameters")
 
 
 #check if .log file exists
