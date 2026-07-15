@@ -6,17 +6,9 @@ trigger_time_topic: "indonesia/camera/trigger_time"
 message: null
 
 camera:
-  camera_type: flir
-  serial_number: 75002571
+  camera_type: opencv
 trigger:
-  trigger_type: external
-  trigger_source: Line0
-  trigger_activation: RisingEdge
-camera_settings:
-  buffer_size: 0
-  pixel_format: Mono14
-  cmos_bit_depth: bit14bit
-  temperature_linear_mode: false
+  trigger_type: internal
 
 archiving:
   is_archived: "true"

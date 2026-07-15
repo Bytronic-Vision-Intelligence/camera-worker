@@ -1,5 +1,6 @@
 from pypylon import pylon
 from Dependencies.CameraLibrary.cameras import Camera
+from Dependencies import loadConfig
 from queue import Queue
 from threading import Event
 import logging
@@ -11,20 +12,87 @@ class PylonCamera(Camera):
         super().__init__()
 
     def _find_camera(self) -> pylon.InstantCamera:
-        #find the first available camera and return it
-        #function will return the camera object
+        """Open by ``camera.serial_number`` when set; otherwise first available device."""
         self.cam = None
 
         try:
-            device = pylon.TlFactory.GetInstance().CreateFirstDevice()
-            cam = pylon.InstantCamera(device)
-            camera_info_message = f"Camera found: {cam.GetDeviceInfo().GetModelName()}"
-            logging.info(camera_info_message)
+            serial = str(loadConfig.return_config_value("camera.serial_number") or "").strip()
+        except Exception:
+            serial = ""
+
+        try:
+            tl_factory = pylon.TlFactory.GetInstance()
+
+            if not serial:
+                device = tl_factory.CreateFirstDevice()
+                cam = pylon.InstantCamera(device)
+                logging.info(
+                    "Camera found: %s (first device, serial=%s)",
+                    cam.GetDeviceInfo().GetModelName(),
+                    cam.GetDeviceInfo().GetSerialNumber(),
+                )
+                self.cam = cam
+                return cam
+
+            devices = tl_factory.EnumerateDevices()
+            if not devices:
+                raise RuntimeError("No Pylon cameras detected")
+
+            matched = None
+            for info in devices:
+                if info.GetSerialNumber() == serial:
+                    matched = info
+                    break
+
+            if matched is None:
+                available = [info.GetSerialNumber() for info in devices]
+                raise RuntimeError(
+                    f"Pylon camera with serial_number={serial} not found "
+                    f"(detected={available})"
+                )
+
+            cam = pylon.InstantCamera(tl_factory.CreateDevice(matched))
+            logging.info(
+                "Camera found: %s (serial=%s)",
+                cam.GetDeviceInfo().GetModelName(),
+                serial,
+            )
             self.cam = cam
             return cam
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError("Error finding camera: " + str(e)) from e
-        
+
+    def _apply_camera_settings(self, camera: pylon.InstantCamera) -> None:
+        """Apply optional ``camera_settings`` from the nested config (no trigger setup)."""
+        cfg = loadConfig.get_section("camera_settings")
+        if not cfg:
+            return
+
+        buffer_size = cfg.get("buffer_size")
+        try:
+            buffer_size = int(buffer_size) if buffer_size is not None else 0
+        except (TypeError, ValueError):
+            buffer_size = 0
+        if buffer_size > 0:
+            try:
+                camera.MaxNumBuffer.Value = buffer_size
+                logging.info("MaxNumBuffer set to %s", buffer_size)
+            except Exception:
+                logging.warning("Failed setting MaxNumBuffer=%s", buffer_size, exc_info=True)
+
+        pixel_format = cfg.get("pixel_format")
+        if pixel_format:
+            try:
+                if hasattr(camera, "PixelFormat") and camera.PixelFormat.IsWritable():
+                    camera.PixelFormat.Value = str(pixel_format)
+                    logging.info("PixelFormat set to %s", pixel_format)
+            except Exception:
+                logging.warning(
+                    "Failed setting PixelFormat=%s", pixel_format, exc_info=True
+                )
+
     def connect_to_camera(self, timeout_ms: int = 5000) -> pylon.InstantCamera:
         # Connect to the camera and return the camera object.
         # Function returns the camera object.
@@ -45,6 +113,8 @@ class PylonCamera(Camera):
                 if time.time() - start > timeout_s:
                     raise TimeoutError("Timeout while waiting for camera to open.")
                 time.sleep(0.1)
+
+            self._apply_camera_settings(self.cam)
 
             logging.info("Camera connected successfully")
             return self.cam
