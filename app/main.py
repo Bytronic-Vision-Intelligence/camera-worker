@@ -11,9 +11,8 @@ from Dependencies.CameraLibrary import Camera, PylonCamera, LJSCamera
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
+from Dependencies.archive_functions import save_image_to_file
 from mqtt_client import MQTTClient, MQTTConfig
-
-from sys import getsizeof
 
 IP = loadConfig.return_config_value("ip")
 PORT = loadConfig.return_config_value("port")
@@ -26,6 +25,8 @@ CAMERA_TYPE = loadConfig.return_config_value("camera_type")
 TRIGGER_TYPE = loadConfig.return_config_value("trigger_type")
 
 ARCHIVE_DIRECTORY = loadConfig.return_config_value("archive_directory")
+SAVE_IMAGES = loadConfig.return_config_value("save_images")
+SAVE_DIR = loadConfig.return_config_value("save_dir")
 LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
 BUFFER_SIZE = loadConfig.return_config_value("buffer_size")
 IS_ARCHIVED = loadConfig.return_config_value("is_archived") == "true"
@@ -133,9 +134,19 @@ def main():
                 continue
             
             if IS_ARCHIVED:
-                archive_image(image, ARCHIVE_DIRECTORY, CAMERA_TYPE+time.strftime("%Y%m%d_%H%M%S%MS"))
+                ms = int((start_time % 1) * 1000)
+                archive_name = f"{CAMERA_TYPE}_{time.strftime('%Y%m%d_%H%M%S')}_{ms:03d}"
+                archive_image(image, ARCHIVE_DIRECTORY, archive_name)
 
             image_bytes = encode_image_to_bytes(image)
+
+            if SAVE_IMAGES:
+                safe_timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(start_time))
+                Thread(
+                    target=save_image_to_file,
+                    args=(image, SAVE_DIR, safe_timestamp),
+                    daemon=True,
+                ).start()
             packet = image_bytes + date_time
 
             logging.info(f"Publishing image... of size {getsizeof(image_bytes)}")
@@ -144,7 +155,7 @@ def main():
                 try:
                     client.publish(IMAGE_TOPIC, packet)
                 except Exception as e:
-                    logging.log(f"Error publishing image: {e}")
+                    logging.error(f"Error publishing image: {e}")
             else:
                 logging.info("Failed to capture image.")
 
