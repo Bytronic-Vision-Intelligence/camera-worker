@@ -159,8 +159,10 @@ class GigeCamera(Camera):
 
             try:
                 nm.TriggerSelector.value = "FrameStart"
-            except Exception:
-                pass
+            except Exception as e:
+                # Some cameras do not expose or allow writing TriggerSelector.
+                # This is optional here, so continue with trigger setup.
+                logging.debug("Skipping TriggerSelector=FrameStart: %s", e)
 
             if trigger_type == "hardware":
                 source = str(trigger_cfg.get("trigger_source") or "Line1")
