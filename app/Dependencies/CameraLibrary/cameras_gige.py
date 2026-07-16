@@ -301,20 +301,20 @@ class GigeCamera(Camera):
             try:
                 if camera.is_acquiring():
                     camera.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Failed to stop camera during disconnect: %s", e, exc_info=True)
             try:
                 camera.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Failed to destroy camera during disconnect: %s", e, exc_info=True)
 
         self.cam = None
 
         if self.harvester is not None:
             try:
                 self.harvester.reset()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Failed to reset harvester during disconnect: %s", e, exc_info=True)
             self.harvester = None
 
         self.pixel_format = None
