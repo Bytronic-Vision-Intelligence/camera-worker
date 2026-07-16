@@ -138,7 +138,9 @@ def main(config_path: str | None = None) -> int:
     stop_event = Event()
     exit_code = 0
 
-    is_external_trigger = str(trigger_type).strip().lower() == "external"
+    # GigE: hardware | software | continuous. Other backends: external | internal.
+    _trigger = str(trigger_type).strip().lower()
+    is_external_trigger = _trigger in ("external", "hardware")
 
     if not is_external_trigger:
         subscribe_thread = start_subscribe_thread(

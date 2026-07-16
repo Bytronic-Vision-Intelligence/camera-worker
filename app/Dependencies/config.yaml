@@ -12,7 +12,8 @@ camera:
 camera_settings:
   pixel_format: BayerRG8
 trigger:
-  trigger_type: internal
+  # GigE: hardware | software | continuous
+  trigger_type: software
 
 archiving:
   is_archived: "true"
