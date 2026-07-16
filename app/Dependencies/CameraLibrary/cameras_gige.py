@@ -96,7 +96,7 @@ class GigeCamera(Camera):
                 try:
                     self.harvester.reset()
                 except Exception:
-                    pass
+                    logging.debug("Ignoring harvester reset failure during camera discovery error handling.", exc_info=True)
                 self.harvester = None
             raise RuntimeError("Error finding camera: " + str(e)) from e
 
