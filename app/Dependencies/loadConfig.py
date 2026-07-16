@@ -5,9 +5,22 @@ from typing import Any
 
 import yaml
 
+_CONFIG_PATH_OVERRIDE: Path | None = None
+
 
 def _config_path() -> Path:
+    if _CONFIG_PATH_OVERRIDE is not None:
+        return _CONFIG_PATH_OVERRIDE
     return Path(__file__).resolve().parent / "config.yaml"
+
+
+def set_config_path(path: str | Path | None) -> None:
+    """Override the config file path for this process."""
+    global _CONFIG_PATH_OVERRIDE
+    if path is None:
+        _CONFIG_PATH_OVERRIDE = None
+        return
+    _CONFIG_PATH_OVERRIDE = Path(path).resolve()
 
 
 def get_config() -> dict:

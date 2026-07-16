@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import argparse
 from sys import getsizeof
 from queue import Empty, Queue
 from threading import Event, Thread
@@ -8,51 +9,58 @@ import numpy as np
 from pathlib import Path
 
 from Dependencies import loadConfig
-from Dependencies.CameraLibrary import Camera, PylonCamera, GigeCamera, LJSCamera, FlirCamera
+from Dependencies.CameraLibrary.cameras import Camera
 from Dependencies.CameraLibrary.hardware_trigger import CameraLossError
 from Dependencies.mqtt_functions import start_subscribe_thread
 from Dependencies.data_functions import encode_date_time_to_bytes, encode_image_to_bytes
 from Dependencies.archive_functions import archive_image
 from mqtt_client import MQTTClient, MQTTConfig
 
-IP = loadConfig.return_config_value("ip")
-PORT = loadConfig.return_config_value("port")
-TRIGGER_TOPIC = loadConfig.return_config_value("trigger_topic")
-TRIGGER_TIME_TOPIC = loadConfig.return_config_value("trigger_time_topic")
-MESSAGE = loadConfig.return_config_value("message")
+def load_runtime_config(config_path: str | None = None) -> dict:
+    if config_path:
+        loadConfig.set_config_path(config_path)
 
-CAMERA_TYPE = loadConfig.return_config_value("camera.camera_type")
-try:
-    CAMERA_ID = loadConfig.return_config_value("camera.serial_number")
-except KeyError:
-    CAMERA_ID = None
-if CAMERA_ID is not None:
-    CAMERA_ID = str(CAMERA_ID).strip() or None
-IMAGE_TOPIC = loadConfig.return_config_value("image_topic")
-if CAMERA_ID:
-    IMAGE_TOPIC = IMAGE_TOPIC.replace("/camera/", f"/camera_{CAMERA_ID}/")
-TRIGGER_TYPE = loadConfig.return_config_value("trigger.trigger_type")
+    ip = loadConfig.return_config_value("ip")
+    port = loadConfig.return_config_value("port")
+    trigger_topic = loadConfig.return_config_value("trigger_topic")
+    trigger_time_topic = loadConfig.return_config_value("trigger_time_topic")
+    message = loadConfig.return_config_value("message")
 
-ARCHIVE_DIRECTORY = Path(loadConfig.return_config_value("archiving.archive_directory"))
-LOGGING_FILE = f'./logs/{CAMERA_TYPE}_worker{time.strftime("%Y%m%d")}.log'
-BUFFER_SIZE = loadConfig.get_section("camera_settings").get("buffer_size")
-IS_ARCHIVED = str(loadConfig.return_config_value("archiving.is_archived")).lower() == "true"
-ARCHIVE_PARAMS = loadConfig.return_config_value("archiving.archive_parameters")
+    camera_type = loadConfig.return_config_value("camera.camera_type")
+    try:
+        camera_id = loadConfig.return_config_value("camera.serial_number")
+    except KeyError:
+        camera_id = None
+    if camera_id is not None:
+        camera_id = str(camera_id).strip() or None
 
+    image_topic = loadConfig.return_config_value("image_topic")
+    if camera_id:
+        image_topic = image_topic.replace("/camera/", f"/camera_{camera_id}/")
+    trigger_type = loadConfig.return_config_value("trigger.trigger_type")
 
-#check if .log file exists
-os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
-if not os.path.exists(LOGGING_FILE):
-    with open(LOGGING_FILE, "w") as file:
-        file.write("")
+    archive_directory = Path(loadConfig.return_config_value("archiving.archive_directory"))
+    logging_file = f'./logs/{camera_type}_worker{time.strftime("%Y%m%d")}.log'
+    buffer_size = loadConfig.get_section("camera_settings").get("buffer_size")
+    is_archived = str(loadConfig.return_config_value("archiving.is_archived")).lower() == "true"
+    archive_params = loadConfig.return_config_value("archiving.archive_parameters")
 
-logging.basicConfig(
-    filename=LOGGING_FILE,
-    level=logging.INFO,
-    format='%(asctime)s - [PID %(process)d] - %(levelname)s - %(message)s',
-    force=True,  # Force configuration even if the logger was previously configured
-    filemode='a'  # Append mode instead of overwrite
-)
+    return {
+        "ip": ip,
+        "port": port,
+        "trigger_topic": trigger_topic,
+        "trigger_time_topic": trigger_time_topic,
+        "message": message,
+        "camera_type": camera_type,
+        "camera_id": camera_id,
+        "image_topic": image_topic,
+        "trigger_type": trigger_type,
+        "archive_directory": archive_directory,
+        "logging_file": logging_file,
+        "buffer_size": buffer_size,
+        "is_archived": is_archived,
+        "archive_params": archive_params,
+    }
 
 def set_camera_class(camera_type: str):
     if not camera_type:
@@ -61,12 +69,16 @@ def set_camera_class(camera_type: str):
     if camera_type == "opencv":
         camera = Camera()
     elif camera_type == "pylon":
+        from Dependencies.CameraLibrary.cameras_pylon import PylonCamera
         camera = PylonCamera()
     elif camera_type == "gige":
+        from Dependencies.CameraLibrary.cameras_gige import GigeCamera
         camera = GigeCamera()
     elif camera_type == "flir":
+        from Dependencies.CameraLibrary.cameras_flir import FlirCamera
         camera = FlirCamera()
     elif camera_type == "ljs":
+        from Dependencies.CameraLibrary.LJSCamera import LJSCamera
         camera = LJSCamera()
     else:
         raise ValueError(f"Unsupported camera type: {camera_type}")
@@ -89,10 +101,36 @@ def start_frame_thread(
     thread.start()
     return thread
 
-def main() -> int:
-    camera = set_camera_class(CAMERA_TYPE)
+def main(config_path: str | None = None) -> int:
+    cfg = load_runtime_config(config_path)
+    ip = cfg["ip"]
+    port = cfg["port"]
+    trigger_topic = cfg["trigger_topic"]
+    camera_type = cfg["camera_type"]
+    camera_id = cfg["camera_id"]
+    image_topic = cfg["image_topic"]
+    trigger_type = cfg["trigger_type"]
+    archive_directory = cfg["archive_directory"]
+    logging_file = cfg["logging_file"]
+    is_archived = cfg["is_archived"]
+    archive_params = cfg["archive_params"]
 
-    config = MQTTConfig(host=IP, port=PORT)
+    os.makedirs(os.path.dirname(logging_file), exist_ok=True)
+    if not os.path.exists(logging_file):
+        with open(logging_file, "w") as file:
+            file.write("")
+
+    logging.basicConfig(
+        filename=logging_file,
+        level=logging.INFO,
+        format='%(asctime)s - [PID %(process)d] - %(levelname)s - %(message)s',
+        force=True,
+        filemode='a'
+    )
+
+    camera = set_camera_class(camera_type)
+
+    config = MQTTConfig(host=ip, port=port)
     client = MQTTClient(config)
     client.connect()
 
@@ -100,13 +138,13 @@ def main() -> int:
     stop_event = Event()
     exit_code = 0
 
-    is_external_trigger = str(TRIGGER_TYPE).strip().lower() == "external"
+    is_external_trigger = str(trigger_type).strip().lower() == "external"
 
     if not is_external_trigger:
         subscribe_thread = start_subscribe_thread(
-            IP,
-            PORT,
-            TRIGGER_TOPIC,
+            ip,
+            port,
+            trigger_topic,
             event_queue,
             stop_event,
         )
@@ -152,10 +190,10 @@ def main() -> int:
                 logging.error("No image available to encode.")
                 continue
             
-            if IS_ARCHIVED:
+            if is_archived:
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                archive_filename = f"cam{CAMERA_ID or '0'}_{CAMERA_TYPE}_{timestamp}"
-                archive_image(image, ARCHIVE_DIRECTORY, archive_filename, ARCHIVE_PARAMS, CAMERA_ID)
+                archive_filename = f"cam{camera_id or '0'}_{camera_type}_{timestamp}"
+                archive_image(image, archive_directory, archive_filename, archive_params, camera_id)
 
             image_bytes = encode_image_to_bytes(image)
             packet = image_bytes + date_time
@@ -164,7 +202,7 @@ def main() -> int:
 
             if image is not None:
                 try:
-                    client.publish(IMAGE_TOPIC, packet)
+                    client.publish(image_topic, packet)
                 except Exception as e:
                     logging.error("Error publishing image: %s", e)
             else:
@@ -194,4 +232,12 @@ def main() -> int:
     return exit_code
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description="Camera worker")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to YAML config file (defaults to app/Dependencies/config.yaml)",
+    )
+    args = parser.parse_args()
+    raise SystemExit(main(config_path=args.config))
