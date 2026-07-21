@@ -20,7 +20,7 @@ import numpy as np
 
 from Dependencies import loadConfig
 
-from . import ljs_settings
+from . import settings_ljs
 from .cameras import CameraHeightMap
 from .hardware_trigger import report_camera_loss
 
@@ -267,11 +267,11 @@ class LJSCamera(CameraHeightMap):
         if not self.settings:
             return
 
-        program_type = ljs_settings.program_type_byte(self.program)
+        program_type = settings_ljs.program_type_byte(self.program)
         err = ctypes.c_uint()
 
         for key, value in self.settings.items():
-            spec = ljs_settings.SETTINGS_REGISTRY.get(key)
+            spec = settings_ljs.SETTINGS_REGISTRY.get(key)
             if spec is None:
                 logger.warning("Unknown LJS setting %r (value=%r); skipping", key, value)
                 continue
@@ -292,7 +292,7 @@ class LJSCamera(CameraHeightMap):
 
             buf = (ctypes.c_ubyte * len(payload))(*payload)
             res = LJSwrap.LJS8IF_SetSetting(
-                self.device_id, ljs_settings.DEPTH_WRITE, target_setting, buf, len(payload), err,
+                self.device_id, settings_ljs.DEPTH_WRITE, target_setting, buf, len(payload), err,
             )
             if res != 0:
                 raise RuntimeError(
@@ -304,7 +304,7 @@ class LJSCamera(CameraHeightMap):
         # One Reflect commits every WRITE-area setting above at once, so a
         # transiently-inconsistent pair (e.g. light control upper below
         # lower) never gets validated mid-batch (RM §8.2.8.2 usage example 1).
-        res = LJSwrap.LJS8IF_ReflectSetting(self.device_id, ljs_settings.DEPTH_RUNNING, err)
+        res = LJSwrap.LJS8IF_ReflectSetting(self.device_id, settings_ljs.DEPTH_RUNNING, err)
         if res != 0:
             raise RuntimeError(
                 f"LJS8IF_ReflectSetting failed: {_hex(res)} (detail error {_hex(err.value)})"

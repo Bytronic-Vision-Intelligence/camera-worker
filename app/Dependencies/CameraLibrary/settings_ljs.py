@@ -1,6 +1,6 @@
 """Encode/decode tables for LJ-S8000 head settings (Communication Library RM §11.3).
 
-Kept separate from ``LJSCamera.py`` so the byte-layout knowledge for each
+Kept separate from ``cameras_ljs.py`` so the byte-layout knowledge for each
 setting item lives in one place and can be unit tested without touching
 ctypes/the DLL. Values here describe *program-scoped* settings only (the
 ones addressed via ``byType = 0x10 + program_no``); see RM §11.3 for the
