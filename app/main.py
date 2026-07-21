@@ -98,10 +98,16 @@ def main() -> int:
     stop_event = Event()
     exit_code = 0
 
-    if TRIGGER_TYPE == "external" or CAMERA_TYPE != "opencv":
-        is_external_trigger = True
+    # opencv defaults to MQTT (internal) unless trigger_type is external.
+    # ljs supports both: internal = MQTT + LJS8IF_Trigger; external = hardware TRG.
+    # other backends (pylon/flir) stay on the frame-thread path.
+    _trigger = str(TRIGGER_TYPE).strip().lower()
+    if CAMERA_TYPE == "ljs":
+        is_external_trigger = _trigger in ("external", "hardware")
+    elif CAMERA_TYPE == "opencv":
+        is_external_trigger = _trigger == "external"
     else:
-        is_external_trigger = False
+        is_external_trigger = True
 
     if not is_external_trigger:
         subscribe_thread = start_subscribe_thread(

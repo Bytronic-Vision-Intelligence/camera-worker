@@ -106,9 +106,10 @@ class LJSCamera(CameraHeightMap):
         height_mm = ljs.capture_image()   # 2D float32 array in mm, NaN = no data
         ljs.disconnect_camera()
 
-    ``main.py`` never calls ``capture_image()`` for ``camera_type: ljs`` --
-    the head is triggered externally via its own TRG terminal, and the
-    worker instead drains ``wait_for_frame()`` on a background thread.
+    With ``trigger.trigger_type: internal``, ``main.py`` subscribes to MQTT and
+    calls ``capture_image()`` (software ``LJS8IF_Trigger``). With ``external``,
+    the head is triggered from its TRG terminal and ``main.py`` drains
+    ``wait_for_frame()`` on a background thread.
 
     Any keyword arguments override the matching ``camera.ljs.*`` config key
     (host, port, high_speed_port, device_id, program, timeout_s,
@@ -428,8 +429,8 @@ class LJSCamera(CameraHeightMap):
     def capture_image(self, timeout_s: Optional[float] = None) -> np.ndarray:
         """Software-trigger one scan and return its height map (mm, NaN = invalid).
 
-        ``main.py`` never calls this for ``camera_type: ljs`` (see class
-        docstring); kept for direct/manual use outside the worker loop.
+        ``main.py`` calls this for ``camera_type: ljs`` when
+        ``trigger.trigger_type`` is ``internal`` (MQTT-driven).
         """
         if not self._connected:
             raise RuntimeError("LJSCamera is not connected")

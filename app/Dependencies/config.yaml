@@ -6,7 +6,7 @@ trigger_time_topic: "indonesia/camera/trigger_time"
 message: null
 
 camera:
-  camera_type: opencv
+  camera_type: ljs
   # Used when camera_type: ljs -- direct Ethernet connection to an LJ-S640
   # head (no controller). See app/Dependencies/CameraLibrary/LJSCamera.py.
   ljs:
@@ -17,8 +17,8 @@ camera:
     program: 0               # active program number, 0-15
     timeout_s: 5.0
     use_image_filter: false
-    interpolate_y: 1         # repeat each Y line 1-8x to match X pitch
-    settings:                # applied to `program` on connect; see ljs_settings.py
+    interpolate_y: 4         # repeat each Y line 1-8x to match X pitch
+    settings:               # applied to `program` on connect; see ljs_settings.py
       exposure_time_us: 640
       dynamic_range: 4
       light_control_mode: "AUTO"
