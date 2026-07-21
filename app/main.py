@@ -78,7 +78,7 @@ def set_camera_class(camera_type: str):
         from Dependencies.CameraLibrary.cameras_flir import FlirCamera
         camera = FlirCamera()
     elif camera_type == "ljs":
-        from Dependencies.CameraLibrary.LJSCamera import LJSCamera
+        from Dependencies.CameraLibrary.cameras_ljs import LJSCamera
         camera = LJSCamera()
     else:
         raise ValueError(f"Unsupported camera type: {camera_type}")
@@ -138,7 +138,8 @@ def main(config_path: str | None = None) -> int:
     stop_event = Event()
     exit_code = 0
 
-    # GigE: hardware | software | continuous. Other backends: external | internal.
+    # GigE: hardware | software | continuous. LJS/others: external | internal.
+    # internal/software → MQTT + capture_image; external/hardware → frame thread.
     _trigger = str(trigger_type).strip().lower()
     is_external_trigger = _trigger in ("external", "hardware")
 
