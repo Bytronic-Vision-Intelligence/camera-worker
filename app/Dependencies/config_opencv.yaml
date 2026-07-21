@@ -7,6 +7,7 @@ message: null
 
 camera:
   camera_type: opencv
+  camera_id: 0
 trigger:
   trigger_type: internal
 

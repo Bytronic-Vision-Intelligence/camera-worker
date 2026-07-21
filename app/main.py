@@ -27,8 +27,10 @@ def load_runtime_config(config_path: str | None = None) -> dict:
     message = loadConfig.return_config_value("message")
 
     camera_type = loadConfig.return_config_value("camera.camera_type")
+    # Logical id for MQTT topics / archiving (ui_worker listens on camera_{id}).
+    # Distinct from camera.serial_number, which selects the hardware device.
     try:
-        camera_id = loadConfig.return_config_value("camera.serial_number")
+        camera_id = loadConfig.return_config_value("camera.camera_id")
     except KeyError:
         camera_id = None
     if camera_id is not None:
