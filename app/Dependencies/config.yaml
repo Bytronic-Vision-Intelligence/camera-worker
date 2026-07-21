@@ -35,3 +35,5 @@ archiving:
     archive_freq: "daily"
     archive_storage: 50 # GB
     archive_days: 30 # days
+    # Archived PNGs keep original values (uint16 counts / encoded float mm).
+    # LJS: mm = (pixel - 32768) / 100 ; pixel 0 = invalid.
