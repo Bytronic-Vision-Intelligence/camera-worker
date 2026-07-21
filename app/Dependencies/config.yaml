@@ -7,6 +7,9 @@ message: null
 
 camera:
   camera_type: ljs
+  # Logical camera index for MQTT topics (ui_worker: .../camera_{id}/image)
+  # and archive paths. Not the hardware serial — use serial_number for that.
+  camera_id: 0
   # Used when camera_type: ljs -- direct Ethernet connection to an LJ-S640
   # head (no controller). See app/Dependencies/CameraLibrary/cameras_ljs.py.
   ljs:
